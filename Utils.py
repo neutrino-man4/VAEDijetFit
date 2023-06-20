@@ -224,7 +224,11 @@ def PlotFitResults(frame,fitErrs,nPars,pulls,data_name,pdf_names,chi2,ndof,canvn
     pt.SetFillColor(0)
     pt.SetBorderSize(0)
     pt.SetFillStyle(0)
-    pt.AddText("Chi2/ndf = %.2f/%i = %.2f"%(chi2,ndof,chi2/ndof))
+    if ndof!=0:
+        pt.AddText("Chi2/ndf = %.2f/%i = %.2f"%(chi2,ndof,chi2/ndof))
+    else:
+        pt.AddText("Chi2/ndf = %.2f/%i"%(chi2,ndof))
+        
     pt.AddText("Prob = %.3f"%ROOT.TMath.Prob(chi2,ndof))
     pt.Draw()
     
@@ -581,9 +585,11 @@ def checkSBFit(filename,label,roobins,plotname, nPars, plot_dir):
     #chi2,ndof = calculateChi2(hpull, nPars +1)
 
     pdf_names = ["model_s","Signal","Background"] 
+    pvals=ROOT.TMath.Prob(chi2,ndof)
+    print "chi2,ndof are", chi2, ndof
+    print "pval=", pvals
     PlotFitResults(frame,fres.GetName(),nPars,frame3,"data_obs", pdf_names,chi2,ndof,'sbFit_'+plotname, plot_dir, has_sig = True)
 
-    print "chi2,ndof are", chi2, ndof
     return chi2, ndof
 
 
@@ -722,6 +728,8 @@ def checkSBFitFinal(filename,label,roobins,plotname, nPars, plot_dir):
     pdf_names = ["model_s","Signal","Background"] 
     PlotFitResults(frame,fres.GetName(),nPars,frame3,"data_obs", pdf_names,chi2,ndof,'sbFit_'+plotname, plot_dir, has_sig = True)
 
+    pvals=ROOT.TMath.Prob(chi2,ndof)
     print "chi2,ndof are", chi2, ndof
+    print "pval=", pvals
     return chi2, ndof
 

@@ -10,7 +10,9 @@
 *.csv
 *.out
 *.h5
-XtoYY**/
+XToYY**/
 valid**/
 unblind**/
 csv**/
+\*
+*.json

@@ -133,18 +133,7 @@ if __name__ == "__main__":
    elif options.config==7:    
         quantiles = ['q50', 'q70', 'q90', 'q95', 'q99', 'total']
         fractions = [1, 1, 0.05/0.20, 0.04/0.20, 0.01/0.20]
-   # ARITRA: added new configuration options
-   elif options.config==8:    
-        quantiles = ['q0', 'q30', 'total']
-        fractions = [1, 0.70/0.30]
-   elif options.config==9:    
-        quantiles = ['q0','q30', 'q50', 'total']
-        fractions = [1, 0.20/0.30, 0.50/0.30]
-   elif options.config==10:    
-        quantiles = ['q0','q30', 'q50', 'q70','total']
-        fractions = [1, 0.20/0.30, 0.20/0.30, 0.30/0.30]
-        
-   
+
    # change signal fit intervall according to resonance width
    if sig_res == "na":
       sig_mjj_limits = (0.8*mass,1.2*mass)
@@ -237,7 +226,7 @@ if __name__ == "__main__":
       - chi2 ??
    ''' 
 
-   nParsToTry = [3,4,5,6]
+   nParsToTry = [2,3,4]
    best_i = [0]*len(quantiles)
    nPars_QCD = [0]*len(quantiles)
    qcd_fname = [0]*len(quantiles)
@@ -628,7 +617,7 @@ if __name__ == "__main__":
          pvalue_inc = res1.limit   
          import csv
          fields.append(pvalue_inc)
-         with open('csv_files/pvalues_unblinded_fit_try2.csv', 'a+') as csv_file:
+         with open('pvalues_unblinded_fit_entire_parallel.csv', 'a+') as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(fields)
             #import pdb; pdb.set_trace()
