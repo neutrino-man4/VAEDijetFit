@@ -10,4 +10,7 @@
 *.csv
 *.out
 *.h5
-
+XtoYY**/
+valid**/
+unblind**/
+csv**/
