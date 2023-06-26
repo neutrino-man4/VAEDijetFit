@@ -107,8 +107,13 @@ if __name__ == "__main__":
    sig_res = options.sig_res
    out_dir = options.out_dir
    prepare_output_directory(out_dir, False)
-   binsx = [1455,1530,1607,1687,1770,1856,1945,2037,2132,2231,2332,2438,2546,2659,2775,2895,3019,3147,3279,3416,3558,3704,3854,4010,4171,4337,4509,4686,4869,5058,5253,5500,5663,5877,6100,6400,6800]
+   #binsx = [1455,1530,1607,1687,1770,1856,1945,2037,2132,2231,2332,2438,2546,2659,2775,2895,3019,3147,3279,3416,3558,3704,3854,4010,4171,4337,4509,4686,4869,5058,5253,5500,5663,5877,6100,6400,6800]
    #binsx = [2037,2132,2231,2332,2438,2546,2659,2775,2895,3019,3147,3279,3416,3558,3704,3854,4010,4171,4337,4509,4686,4869,5058,5253,5500,5663,5877,6100,6400,6800,7200,7600,8000]
+   binsx = [1460, 1530, 1607, 1687, 1770, 1856, 1945, 2037, 2132, 2231, 2332, 2438,
+             2546, 2659, 2775, 2895, 3019, 3147, 3279, 3416, 3558, 3704, 3854,
+             4010, 4171, 4337, 4509, 4700, 4900,  5100, 5300, 5500, 5800,
+             6100, 6400, 6800]
+   
    roobins = ROOT.RooBinning(len(binsx)-1, array('d',binsx), "mjjbins")
    bins_fine = int(binsx[-1]-binsx[0])
    
@@ -237,7 +242,7 @@ if __name__ == "__main__":
       - chi2 ??
    ''' 
 
-   nParsToTry = [3,4,5,6]
+   nParsToTry = [2,3,4,5,6]
    best_i = [0]*len(quantiles)
    nPars_QCD = [0]*len(quantiles)
    qcd_fname = [0]*len(quantiles)
@@ -356,7 +361,7 @@ if __name__ == "__main__":
       print "############# INJECT SIGNAL DATA GENERATING FROM SIGNAL PDF for quantile "+q+" ###########"
       #QCD is taken from the histogram
      
-      f = ROOT.TFile("/tmp/%s/cache%i.root"%(commands.getoutput("whoami"),random.randint(0, 1e+6)),"RECREATE")
+      f = ROOT.TFile("tmp/aritra/cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")
       f.cd()
       w=ROOT.RooWorkspace("w","w")
 
@@ -628,7 +633,10 @@ if __name__ == "__main__":
          pvalue_inc = res1.limit   
          import csv
          fields.append(pvalue_inc)
-         with open('csv_files/pvalues_unblinded_fit_try2.csv', 'a+') as csv_file:
+         fields.append(nPars_QCD)
+         csv_filename=('csv_files/{nAttempt}/pvalues_unblinded.csv').format(nAttempt=os.path.split(options.inputDir)[-1])
+         #csv_filename='pvalues_unblinded.csv'
+         with open(csv_filename, 'a+') as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(fields)
             #import pdb; pdb.set_trace()
