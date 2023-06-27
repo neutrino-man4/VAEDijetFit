@@ -10,5 +10,8 @@
 *.csv
 *.out
 *.h5
+unblinding*/
+validation*/
+XToYY*/
 
 *.json
