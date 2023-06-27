@@ -3,7 +3,8 @@ from array import array
 import numpy as np
 import time, sys, os, optparse, json
 import pathlib2
-
+import csv
+         
 from Utils import *
 
 import ROOT
@@ -78,7 +79,7 @@ def prepare_output_directory(out_dir, clean_up=True):
         pathlib2.Path(out_dir).mkdir(parents=True, exist_ok=True)
         return
     if clean_up:
-        os.system('rm '+out_dir+'/{*.root,*.txt,*.C}') 
+        os.system('rm '+out_dir+'/{*.root,*.txt,*.C,*.png,*.csv}') 
 
 def rebin(options,binsx,bins_fine,quantiles):
 
@@ -165,6 +166,7 @@ if __name__ == "__main__":
    parser.add_option("--mjj_min", type=float, default=-1.0, help="Minimum mjj for the fit")
    parser.add_option("--mjj_max", type=float, default=-1.0, help="Maximum mjj for the fit")
    parser.add_option("--rebin", default=False, action="store_true", help="""Rebin dijet bins to make sure no bins less than 5 evts""")
+   parser.add_option("--bestfit", default=False, dest="best_fitrange",action="store_true", help="""Proceed only if best fit range is found.""")
    (options,args) = parser.parse_args()
     
    seed=-1 
@@ -172,7 +174,7 @@ if __name__ == "__main__":
    mass_label=(int)(mass)
    sig_res = options.sig_res
    out_dir = options.out_dir
-   prepare_output_directory(out_dir, False)
+   prepare_output_directory(out_dir, False) # by default, cleanup = False
    binsx = [1460, 1530, 1607, 1687, 1770, 1856, 1945, 2037, 2132, 2231, 2332, 2438,
              2546, 2659, 2775, 2895, 3019, 3147, 3279, 3416, 3558, 3704, 3854,
              4010, 4171, 4337, 4509, 4700, 4900,  5100, 5300, 5500, 5800,
@@ -257,7 +259,7 @@ if __name__ == "__main__":
 
       for h in histos_sig: h.SaveAs(os.path.join(out_dir, "data_"+h.GetName()+".root"))
       for h in histos_qcd: h.SaveAs(os.path.join(out_dir, "data_"+h.GetName()+".root"))
-      sys.exit()
+      #sys.exit()
       
    else: #let's make it faster if you have run once already!
 
@@ -304,6 +306,7 @@ if __name__ == "__main__":
 
    nParsToTry = [2, 3, 4]
    best_i = [0]*len(quantiles)
+   best_probs=[0.]*len(quantiles)
    nPars_QCD = [0]*len(quantiles)
    qcd_fname = [""]*len(quantiles)
    chi2s = [0]*len(quantiles)
@@ -312,7 +315,7 @@ if __name__ == "__main__":
    fit_params = [0]*len(quantiles)
    fit_errs = [0]*len(quantiles)
    dcb = True #use Double Crystal Ball for signal templates
-
+   fit_parameters={}
    for iq,q in enumerate(quantiles):
       
       if q!='q90': continue
@@ -657,6 +660,7 @@ if __name__ == "__main__":
       best_i[iq] = f_test(nParsToTry, ndofs[iq], chi2s[iq], fit_errs[iq], thresh = options.ftest_thresh, err_thresh = options.err_thresh) #f_test(nParsToTry_converged, ndofs[iq], chi2s[iq])
       nPars_QCD[iq] = nParsToTry[best_i[iq]] #nParsToTry_converged[best_i[iq]]
       qcd_fname[iq] = qcd_fnames[best_i[iq]]
+      best_probs[iq] = probs[iq][best_i[iq]]
       print ( " qcd_fname[iq] ",qcd_fname[iq])
       print("\n Chose %i parameters based on F-test ! \n" % nPars_QCD[iq])
 
@@ -666,13 +670,18 @@ if __name__ == "__main__":
 
       print
       print
+      
+      fit_parameters['bkgfit_prob']=best_probs[iq]
+      fit_parameters['nPars']=nPars_QCD[iq]
+      fit_parameters['quantile']=q
+
       print "############ MAKE PER CATEGORY (quantile ",q," ) DATACARD AND WORKSPACE AND RUN COMBINE #############"
 
       card=DataCardMaker(q, out_dir)
 
       #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       #else: card.addSignalShape('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
-      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', '../VAEDijetFit_Delphes_Jen/XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       
       ### !!! compute amount of signal to be injected 
            
@@ -710,9 +719,34 @@ if __name__ == "__main__":
       os.system(cmd)
       fitter_QCD.delete()
       #run and visualize s+b fit as sanity check (sb_fit_mjj_qcd_q.root.pdf)
-      checkSBFit('{out_dir}/workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, xsec=sig_xsec,label=q),q,roobins,histos_qcd[iq].GetName()+"_M{mass}_xsec{xsec}.root".format(mass=mass,xsec=sig_xsec), nPars_QCD[iq], out_dir)
+      CHI2,NDOF=checkSBFit('{out_dir}/workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, xsec=sig_xsec,label=q),q,roobins,histos_qcd[iq].GetName()+"_M{mass}_xsec{xsec}.root".format(mass=mass,xsec=sig_xsec), nPars_QCD[iq], out_dir)
+      fit_parameters['sbfit_prob']=ROOT.TMath.Prob(CHI2,NDOF)
       print " %%%%%%%%%%%%%%%%%%%%%%%% done with quantile ",q
+
+      with open(os.path.join(out_dir,'fit_params_%s.json'%(q)), 'w') as f:
+         json.dump(fit_parameters,f)
+      
+      if q=='q90':
+         f_signif_name = ('{out_dir}/higgsCombinepvalue_{xsec}_{label}.'
+                     + 'Significance.mH{mass:.0f}.root'
+                     ).format(out_dir=out_dir,xsec=sig_xsec,label=q,mass=mass)
+         f_signif = ROOT.TFile(f_signif_name, "READ")
+         res1 = f_signif.Get("limit")
+         res1.GetEntry(0)
+         pvalue_sb = res1.limit   
+         fields=[mass,nPars_QCD[iq],pvalue_sb,options.mjj_min,options.mjj_max]
+         csv_filename=os.path.join(out_dir,'pvalues.csv')
+         with open(csv_filename, 'a+') as csv_file:
+            writer = csv.writer(csv_file)
+            #import pdb; pdb.set_trace()
+            writer.writerow(fields)
+         
    
+   if not options.best_fitrange:
+      print "BEST FITTING RANGE NOT YET FOUND. EXITING AND TRYING WITH NEW RANGE."
+      sys.exit(0)
+   else:
+      print "BEST FITTING RANGE FOUND. WILL CONTINUE"
    print "------------------------------------------------- F-TEST result -------------------------------------------------"
    for iq,q in enumerate(quantiles):
       print " for quantile ",q," chosen ", nPars_QCD[iq]," parameter function"
@@ -742,7 +776,7 @@ if __name__ == "__main__":
 
       #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0},{'CMS_res_j':1.0})
       #else: card.addSignalShape('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0},{'CMS_res_j':1.0})
-      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', '../VAEDijetFit_Delphes_Jen/XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
 
       if sig_xsec==0: constant = 0.001 #1.0 # might give too large yields for combine to converge ???
       else: constant = sig_scale  #scaling factor to signal histo integral used by addFixedYieldFromFile --> should return r=1 in FitDiagnostics
