@@ -30,7 +30,8 @@ if __name__ == "__main__":
     parser.add_option("--mjj_max", type=float, default=-1.0, help="Maximum mjj for the fit")
     parser.add_option("--rebin", default=False, action="store_true", help="""Rebin dijet bins to make sure no bins less than 5 evts""")
     parser.add_option("--save-all", default=False, action="store_true", help="""Choose whether to save all outputs or only the best fit outputs. \n If used, output will be stored in out_dir/mjj_min-mjj_max""")
-    
+    parser.add_option("--no-dynamic",default=False,action="store_true",help="""Use this option when best fit range is not required and original range is desired""")
+    parser.add_option("--cleanup", default=False, action="store_true", help="""Use if you want to cleanup directory before next run""")
     (options,args) = parser.parse_args()
 
     xsec=options.xsec
@@ -62,19 +63,26 @@ if __name__ == "__main__":
         dijet_cmd+= " --run_toys"
     if options.rebin:
         dijet_cmd+= " --rebin"
-    
+    if options.cleanup:
+        dijet_cmd+= " --cleanup"
     
     run_fit = True
     last_change = 'start' # flag to store whether the last change was made at the start value of the fit or the end value. 
     iter=0
+
+    if options.no_dynamic:
+        subprocess.call(dijet_cmd,  shell = True, executable = '/bin/bash')
+        print("Exiting. Best fit range will not be found.")
+        sys.exit(0)
     while (run_fit):
+        if (iter>5):
+            print('Will probably not converge. Exiting')
+            sys.exit(0)
         run_fit=False 
         dijet_cmd_iter=copy.deepcopy(dijet_cmd)
-        
         # if (iter>0):
         #     print "Running iteration %d of fit. Will load pre-existing QCD histograms."%(iter)
         #     dijet_cmd_iter+=" -l"
-        
         
         if mjj_min > 0:
             dijet_cmd_iter+= " --mjj_min %.0f" % mjj_min
@@ -92,11 +100,20 @@ if __name__ == "__main__":
         subprocess.call(dijet_cmd_iter,  shell = True, executable = '/bin/bash')
         
         iter+=1
+        if options.config==1:
+            params_file=os.path.join(outputDir_iter,'fit_params_q90.json')
+        elif options.config==4:
+            params_file=os.path.join(outputDir_iter,'fit_params_q99.json')
+        elif options.config==8:
+            params_file=os.path.join(outputDir_iter,'fit_params_q70.json')
+        else:
+            sys.exit(0)
             
-        with open(os.path.join(outputDir_iter,'fit_params_q90.json')) as f:
+        with open(params_file) as f:
             fit_params=json.load(f)
         if (fit_params['bkgfit_prob'] < 0.05):# and fit_params['sbfit_prob'] < 0.05):
             run_fit=True
+            print "Fit will be run again in the range %.0f to %.0f GeV" % (mjj_min,mjj_max)
         else:
             print "Best binning found: %.0f to %.0f GeV. Exiting." % (mjj_min,mjj_max)
         
@@ -115,8 +132,6 @@ if __name__ == "__main__":
             else:
                 print "Boundaries have not been changed"
                 run_fit = False
-        if (run_fit):
-            print "Fit will be run again in the range %.0f to %.0f GeV" % (mjj_min,mjj_max)
         
 
 
