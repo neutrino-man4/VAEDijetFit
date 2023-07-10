@@ -85,7 +85,7 @@ def rebin(options,binsx,bins_fine,quantiles):
 
       #decide binning based on the template quantile
       print("PREPARE HISTO_INIT TO GET COSTUME BINNING!!")
-      if options.config==1:
+      if options.config==1 or options.config==8: 
          histo_init = ROOT.TH1F("mjj_qcd_%s"%quantiles[-2],"mjj_qcd_%s"%quantiles[-2],bins_fine,binsx[0],binsx[-1])
          makeData(options,options.qcdFile,quantiles[-2],4,quantiles,histo_init,quantiles[-2],binsx[0],binsx[-1])
       elif options.config==4:
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
    #some configuration
    parser = optparse.OptionParser()
-   parser.add_option("--xsec","--xsec",dest="xsec",type=float,default=0.0006,help="Injected signal cross section in pb")
+   parser.add_option("--xsec","--xsec",dest="xsec",type=float,default=0.0,help="Injected signal cross section in pb")
    parser.add_option("-M","-M",dest="mass",type=float,default=3500.,help="Injected signal mass")
    parser.add_option("-i","--inputDir",dest="inputDir",default='./',help="directory with all quantiles h5 files")
    parser.add_option("--qcd","--qcd",dest="qcdFile",default='qcd.h5',help="QCD h5 file")
@@ -167,6 +167,7 @@ if __name__ == "__main__":
    parser.add_option("--mjj_max", type=float, default=-1.0, help="Maximum mjj for the fit")
    parser.add_option("--rebin", default=False, action="store_true", help="""Rebin dijet bins to make sure no bins less than 5 evts""")
    parser.add_option("--bestfit", default=False, dest="best_fitrange",action="store_true", help="""Proceed only if best fit range is found.""")
+   parser.add_option("--cleanup", default=False, action="store_true", help="""Use if you want to cleanup directory before next run""")
    (options,args) = parser.parse_args()
     
    seed=-1 
@@ -174,7 +175,7 @@ if __name__ == "__main__":
    mass_label=(int)(mass)
    sig_res = options.sig_res
    out_dir = options.out_dir
-   prepare_output_directory(out_dir, False) # by default, cleanup = False
+   prepare_output_directory(out_dir, options.cleanup) # by default, cleanup = False
    binsx = [1460, 1530, 1607, 1687, 1770, 1856, 1945, 2037, 2132, 2231, 2332, 2438,
              2546, 2659, 2775, 2895, 3019, 3147, 3279, 3416, 3558, 3704, 3854,
              4010, 4171, 4337, 4509, 4700, 4900,  5100, 5300, 5500, 5800,
@@ -183,10 +184,12 @@ if __name__ == "__main__":
    #original binning
    #binsx = [1455,1530,1607,1687,1770,1856,1945,2037,2132,2231,2332,2438,2546,2659,2775,2895,3019,3147,3279,3416,3558,3704,3854,4010,4171,4337,4509,4686,4869,5058,5253,5500,5663,5877,6100,6400,6800]
    #roobins = ROOT.RooBinning(len(binsx)-1, array('d',binsx), "mjjbins") 
-
+   most_an='q90'
+   
    if options.config==1:
         quantiles = ['q0', 'q30', 'q50', 'q70', 'q90', 'total'] #most anomalous is q90
         fractions = [1, 0.20/0.30, 0.20/0.30, 0.20/0.30, 0.10/0.30] 
+        most_an='q90'
    elif options.config==2:    
         quantiles = ['q0', 'q30', 'q50', 'q70', 'q90', 'q95','total'] #most anomalous is q95
         fractions = [1, 0.20/0.30, 0.20/0.30, 0.20/0.30, 0.05/0.30, 0.05/0.30]
@@ -196,6 +199,7 @@ if __name__ == "__main__":
    elif options.config==4:    
         quantiles = ['q90', 'q95', 'q99', 'total']
         fractions = [1, 0.04/0.05, 0.01/0.05]
+        most_an='q99'
    elif options.config==5:    
         quantiles = ['q95', 'q99', 'total']
         fractions = [1, 0.01/0.04]
@@ -205,7 +209,11 @@ if __name__ == "__main__":
    elif options.config==7:    
         quantiles = ['q50', 'q70', 'q90', 'q95', 'q99', 'total']
         fractions = [1, 1, 0.05/0.20, 0.04/0.20, 0.01/0.20]
-
+   elif options.config==8:
+        quantiles = ['q0', 'q30', 'q50', 'q70', 'total'] #most anomalous is q70
+        fractions = [1, 0.20/0.30, 0.20/0.30, 0.30/0.30] 
+        most_an='q70'
+   
    # change signal fit intervall according to resonance width
    if sig_res == "na":
       sig_mjj_limits = (0.8*mass,1.2*mass)
@@ -318,7 +326,7 @@ if __name__ == "__main__":
    fit_parameters={}
    for iq,q in enumerate(quantiles):
       
-      if q!='q90': continue
+      if q!=most_an: continue
 
       print "########## FIT SIGNAL AND SAVE PARAMETERS for quantile "+q+"    ############"
       sig_outfile = ROOT.TFile(os.path.join(out_dir, "sig_fit_%s.root"%q),"RECREATE")
@@ -427,7 +435,7 @@ if __name__ == "__main__":
       print "############# INJECT SIGNAL DATA GENERATING FROM SIGNAL PDF for quantile "+q+" ###########"
       #QCD is taken from the histogram
      
-      f = ROOT.TFile("/tmp/%s/cache%i.root"%(commands.getoutput("whoami"),random.randint(0, 1e+6)),"RECREATE")
+      f = ROOT.TFile("cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")
       f.cd()
       w=ROOT.RooWorkspace("w","w")
 
@@ -726,7 +734,7 @@ if __name__ == "__main__":
       with open(os.path.join(out_dir,'fit_params_%s.json'%(q)), 'w') as f:
          json.dump(fit_parameters,f)
       
-      if q=='q90':
+      if q==most_an:
          f_signif_name = ('{out_dir}/higgsCombinepvalue_{xsec}_{label}.'
                      + 'Significance.mH{mass:.0f}.root'
                      ).format(out_dir=out_dir,xsec=sig_xsec,label=q,mass=mass)
@@ -743,7 +751,6 @@ if __name__ == "__main__":
          
    
    if not options.best_fitrange:
-      print "BEST FITTING RANGE NOT YET FOUND. EXITING AND TRYING WITH NEW RANGE."
       sys.exit(0)
    else:
       print "BEST FITTING RANGE FOUND. WILL CONTINUE"
