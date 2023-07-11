@@ -485,6 +485,30 @@ def load_h5_sig(h_file, hist, sig_mjj, requireWindow = False, correctStats =Fals
     if(correctStats): event_num = event_num[mask]
     fill_hist(mjj[mask], hist, event_num)
 
+def get_sig_in_window(h_file, m_low, m_high,q=None):
+    with h5py.File(h_file, "r") as f:
+        if('truth_label' in f.keys()):
+            mjj = f['mjj'][()]
+            is_sig = f['truth_label'][()].reshape(-1)
+            is_sig = is_sig.astype(np.bool)
+            if q is not None:
+                print 'Getting signal events above %s'%q
+                is_q = f['sel_'+q][()].reshape(-1) # additional: get no. of signal events in specific quantile region
+                is_q = is_q.astype(np.bool)
+            else:
+                is_q=np.ones_like(is_sig,dtype=bool)
+        else:
+            return 0
+
+    eps = 1e-6
+    in_window = (mjj > m_low) & (mjj < m_high)
+    in_window = in_window.reshape(-1)
+    sig_events = is_sig > 0.9
+    bkg_events = is_sig < 0.1
+    import pdb;pdb.set_trace()
+    S = mjj[sig_events & in_window & is_q].shape[0]
+    return S
+
 def check_rough_sig(h_file, m_low, m_high):
     with h5py.File(h_file, "r") as f:
         mjj = f['mjj'][()]
