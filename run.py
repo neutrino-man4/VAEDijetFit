@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_option("--err_thresh", type=float, default=0.5, help="Threshold on fit unc to be included in f-test")
     parser.add_option("--mjj_min", type=float, default=-1.0, help="Minimum mjj for the fit")
     parser.add_option("--mjj_max", type=float, default=-1.0, help="Maximum mjj for the fit")
+    parser.add_option("--sig_norm", type=float, default=1680.0,help="Scale signal pdf normalization by this amount")
     parser.add_option("--rebin", default=False, action="store_true", help="""Rebin dijet bins to make sure no bins less than 5 evts""")
     parser.add_option("--save-all", default=False, action="store_true", help="""Choose whether to save all outputs or only the best fit outputs. \n If used, output will be stored in out_dir/mjj_min-mjj_max""")
     parser.add_option("--no-dynamic",default=False,action="store_true",help="""Use this option when best fit range is not required and original range is desired""")
@@ -46,10 +47,11 @@ if __name__ == "__main__":
     err_thresh=options.err_thresh
     mjj_min=options.mjj_min
     mjj_max=options.mjj_max
+    sig_norm=options.sig_norm
     if not options.save_all:
-        dijet_cmd = "python dijetfit.py -i %s --xsec %f -M %.0f --ftest_thresh %.2f --err_thresh %.2f --out %s --qcd %s --sig %s --config %d" % (inputDir, xsec, mass, ftest_thresh, err_thresh,outputDir,qcdFile,sigFile,config)
+        dijet_cmd = "python dijetfit.py -i %s --xsec %f -M %.0f --ftest_thresh %.2f --err_thresh %.2f --out %s --qcd %s --sig %s --config %d --sig_norm %.1f" % (inputDir, xsec, mass, ftest_thresh, err_thresh,outputDir,qcdFile,sigFile,config,sig_norm)
     else:
-        dijet_cmd = "python dijetfit.py -i %s --xsec %f -M %.0f --ftest_thresh %.2f --err_thresh %.2f --qcd %s --sig %s --config %d" % (inputDir, xsec, mass, ftest_thresh, err_thresh,qcdFile,sigFile,config)
+        dijet_cmd = "python dijetfit.py -i %s --xsec %f -M %.0f --ftest_thresh %.2f --err_thresh %.2f --qcd %s --sig %s --config %d --sig_norm %.1f" % (inputDir, xsec, mass, ftest_thresh, err_thresh,qcdFile,sigFile,config,sig_norm)
     
     if options.run_combine:
         dijet_cmd+= " -R"
