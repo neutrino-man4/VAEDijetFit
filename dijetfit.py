@@ -165,6 +165,7 @@ if __name__ == "__main__":
    parser.add_option("--err_thresh", type=float, default=0.5, help="Threshold on fit unc to be included in f-test")
    parser.add_option("--mjj_min", type=float, default=-1.0, help="Minimum mjj for the fit")
    parser.add_option("--mjj_max", type=float, default=-1.0, help="Maximum mjj for the fit")
+   parser.add_option("--sig_norm", type=float, default=1680.0,help="Scale signal pdf normalization by this amount")
    parser.add_option("--rebin", default=False, action="store_true", help="""Rebin dijet bins to make sure no bins less than 5 evts""")
    parser.add_option("--bestfit", default=False, dest="best_fitrange",action="store_true", help="""Proceed only if best fit range is found.""")
    parser.add_option("--cleanup", default=False, action="store_true", help="""Use if you want to cleanup directory before next run""")
@@ -181,6 +182,8 @@ if __name__ == "__main__":
              4010, 4171, 4337, 4509, 4700, 4900,  5100, 5300, 5500, 5800,
              6100, 6400, 6800]
    bins_fine = int(binsx[-1]-binsx[0])          
+   sig_norm=options.sig_norm
+   
    #original binning
    #binsx = [1455,1530,1607,1687,1770,1856,1945,2037,2132,2231,2332,2438,2546,2659,2775,2895,3019,3147,3279,3416,3558,3704,3854,4010,4171,4337,4509,4686,4869,5058,5253,5500,5663,5877,6100,6400,6800]
    #roobins = ROOT.RooBinning(len(binsx)-1, array('d',binsx), "mjjbins") 
@@ -364,7 +367,7 @@ if __name__ == "__main__":
          #break
       print "**********************************************************************************************"
 
-      ### compute chi-square of compatibility of signal-histogram and signal model for sanity ch05eck
+      ### compute chi-square of compatibility of signal-histogram and signal model for sanity check
       # plot fit result to signal_fit_q.png for each quantile q
 
       mjj_fine = fitter.getVar('mjj_fine')
@@ -687,13 +690,17 @@ if __name__ == "__main__":
 
       card=DataCardMaker(q, out_dir)
 
-      #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       #else: card.addSignalShape('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
-      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      # To use actual signal shape instead of 
+      #import pdb;pdb.set_trace()
+      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       
       ### !!! compute amount of signal to be injected 
            
-      if sig_xsec==0: constant = 0.001 # might give too large yields for combine to converge ???
+      #if sig_xsec==0: constant = 0.001 # might give too large yields for combine to converge ???
+      if sig_xsec==0: constant = sig_norm # might give too large yields for combine to converge ???
+      
       else: constant = sig_scale  #scaling factor to signal histo integral used by addFixedYieldFromFile --> should return r=1 in FitDiagnostics
       print " constant = scaling factor to signal integral generated with 1 pb = 1000 fb xsec = ",constant
       # add signal pdf from model_s, taking integral number of events with constant scaling factor for sig
@@ -725,10 +732,51 @@ if __name__ == "__main__":
             'text2workspace.py datacard_JJ_{label}.txt -o workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, mass=mass, xsec=sig_xsec, label=q)
       print cmd
       os.system(cmd)
+      
       fitter_QCD.delete()
       #run and visualize s+b fit as sanity check (sb_fit_mjj_qcd_q.root.pdf)
       CHI2,NDOF=checkSBFit('{out_dir}/workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, xsec=sig_xsec,label=q),q,roobins,histos_qcd[iq].GetName()+"_M{mass}_xsec{xsec}.root".format(mass=mass,xsec=sig_xsec), nPars_QCD[iq], out_dir)
       fit_parameters['sbfit_prob']=ROOT.TMath.Prob(CHI2,NDOF)
+          
+          #expected significance
+
+      print('sig_norm %.3f' % sig_norm)
+
+
+      #injections=[1300, 1100, 900, 700, 500, 300]
+      injections = [480, 360, 240, 160, 100]
+      inj_file=options.sigFile.replace('.h5','').replace('signal_','')
+      csv_filename=os.path.join(out_dir,'asimov.csv')
+      csv_file=open(csv_filename,'w')
+      writer=csv.writer(csv_file)
+      for siginj in injections:
+
+         inj_filename=os.path.join(options.inputDir,'signal_injection_'+inj_file,'only_inj_'+inj_file.replace('Reco','')+'_%d.h5'%siginj)
+         print 'reading %s'%inj_filename
+         true_sig_strength = get_sig_in_window(inj_filename, binsx[0], binsx[-1],q=q)/sig_norm
+         print("True sig strength %.3f" % true_sig_strength)
+
+         cmd = ("cd {out_dir} && " \
+         "combine -M Significance workspace_JJ_{xsec}_{label}.root -t -1 --expectSignal %.3f --toysFreq " % (true_sig_strength)
+            + "-m {mass} -n _exp_significance_{xsec}_{label} ").format(out_dir=out_dir,mass = mass, xsec = sig_xsec, label = q)
+         print(cmd)
+         os.system(cmd)
+         f_exp_signif_name = ('higgsCombine_exp_significance_{xsec}_{label}.'
+                     + 'Significance.mH{mass:.0f}.root'
+                     ).format(mass=mass, xsec=sig_xsec, label=q)
+
+         f_exp_signif = ROOT.TFile(os.path.join(out_dir,f_exp_signif_name), "READ")
+         res_e = f_exp_signif.Get("limit")
+         res_e.GetEntry(0)
+         exp_signif = res_e.limit
+
+         exp_pval = 0.5-(0.5*(1+ROOT.Math.erf(exp_signif/np.sqrt(2)))-0.5*(1+ROOT.Math.erf(0/np.sqrt(2))))
+         print("Asimov significance is %.3f \n" % exp_signif)
+         fit_parameters['exp_sig_%d'%siginj]=exp_signif
+         fit_parameters['exp_pval_%d'%siginj]=exp_pval
+         fields=[siginj,exp_signif,exp_pval]
+         writer.writerow(fields)
+      csv_file.close()
       print " %%%%%%%%%%%%%%%%%%%%%%%% done with quantile ",q
 
       with open(os.path.join(out_dir,'fit_params_%s.json'%(q)), 'w') as f:
