@@ -10,9 +10,8 @@
 *.csv
 *.out
 *.h5
-XToYY**/
-valid**/
-unblind**/
-csv**/
-\*
+unblinding*/
+validation*/
+XToYY*/
+
 *.json
