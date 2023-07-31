@@ -435,7 +435,7 @@ if __name__ == "__main__":
       print "############# INJECT SIGNAL DATA GENERATING FROM SIGNAL PDF for quantile "+q+" ###########"
       #QCD is taken from the histogram
      
-      f = ROOT.TFile("cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")
+      f = ROOT.TFile("%s/cache%i.root"%(os.environ['TMPDIR'],random.randint(0, 1e+6)),"RECREATE")
       f.cd()
       w=ROOT.RooWorkspace("w","w")
 
@@ -718,8 +718,10 @@ if __name__ == "__main__":
             cmd = 'cd {out_dir} && ' \
             'text2workspace.py datacard_JJ_{label}.txt -o workspace_JJ_{xsec}_{label}.root && ' \
             'combine -M FitDiagnostics workspace_JJ_{xsec}_{label}.root -m {mass} -n _M{mass}_xsec{xsec}_{label} && ' \
+            'combine -M AsymptoticLimits workspace_JJ_{xsec}_{label}.root -m {mass} -n _limits_{mass}_xsec{xsec}_{label} && ' \
             'combine -M Significance workspace_JJ_{xsec}_{label}.root -m {mass} -n significance_{xsec}_{label} && ' \
             'combine -M Significance workspace_JJ_{xsec}_{label}.root -m {mass} --pvalue -n pvalue_{xsec}_{label}'.format(out_dir=out_dir, mass=mass, xsec=sig_xsec, label=q, SEED=seed)
+      
       else:
             cmd = 'cd {out_dir} && ' \
             'text2workspace.py datacard_JJ_{label}.txt -o workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, mass=mass, xsec=sig_xsec, label=q)
