@@ -75,7 +75,7 @@ if __name__ == "__main__":
         print("Exiting. Best fit range will not be found.")
         sys.exit(0)
     while (run_fit):
-        if (iter>5):
+        if (iter>2):
             print('Will probably not converge. Exiting')
             sys.exit(0)
         run_fit=False 
