@@ -145,12 +145,12 @@ class DataCardMaker:
         if kind != 'rateParam': self.systematics.append({'name':name,'kind':kind,'values':values })
         else: self.systematics.append({'name':name,'kind':kind,'bin':bin,'process':process,'values':values,'variables':variables})
         
-    def addFixedYieldFromFile(self,name,ID,filename,histoName,constant=1.0):
+    def addFixedYieldFromFile(self,name,ID,filename,histoName,norm=1680.):
         pdfName="_".join([name,self.tag])
         f=ROOT.TFile(filename)
         histogram=f.Get(histoName)
         events=1680.#histogram.GetEntries()*self.luminosity*constant # !!!
-        self.contributions.append({'name':name,'pdf':pdfName,'ID':ID,'yield':events})
+        self.contributions.append({'name':name,'pdf':pdfName,'ID':ID,'yield':norm})
 
     # add a floatable number of events value
     def addFloatingYield(self,name,ID,filename,histoName,mini=0,maxi=1e+7,constant=False):
@@ -280,21 +280,21 @@ class DataCardMaker:
        
         self.w.factory(variable+"[0,13000]")
         
-        #f = ROOT.TFile(jsonFile,'READ')
-        #G_mean = f.Get('mean')
-        #G_sigma = f.Get('sigma')
-        #G_alpha1 = f.Get('alpha1')
-        #G_alpha2 = f.Get('alpha2')
-        #G_n1 = f.Get('n1')
-        #G_n2 = f.Get('n2')
-
         f = ROOT.TFile(jsonFile,'READ')
         G_mean = f.Get('mean')
         G_sigma = f.Get('sigma')
-        G_alpha1 = f.Get('alpha')
+        G_alpha1 = f.Get('alpha1')
         G_alpha2 = f.Get('alpha2')
-        G_n1 = f.Get('sign')
-        G_n2 = f.Get('sign2')
+        G_n1 = f.Get('n1')
+        G_n2 = f.Get('n2')
+
+        f = ROOT.TFile(jsonFile,'READ')
+        # G_mean = f.Get('mean')
+        # G_sigma = f.Get('sigma')
+        # G_alpha1 = f.Get('alpha')
+        # G_alpha2 = f.Get('alpha2')
+        # G_n1 = f.Get('sign')
+        # G_n2 = f.Get('sign2')
 
         x = ROOT.Double(0.)
         mean = ROOT.Double(0.)

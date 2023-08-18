@@ -4,7 +4,7 @@ import numpy as np
 import time, sys, os, optparse, json
 import pathlib2
 import csv
-         
+import pandas as pd
 from Utils import *
 
 import ROOT
@@ -14,7 +14,7 @@ import CMS_lumi, tdrstyle
 tdrstyle.setTDRStyle()
 ROOT.gROOT.SetBatch(True)
 ROOT.RooRandom.randomGenerator().SetSeed(random.randint(0, 1e+6))
-
+import pdb
 from Fitter import Fitter
 from DataCardMaker import DataCardMaker
 from Utils import *
@@ -150,6 +150,7 @@ if __name__ == "__main__":
    parser = optparse.OptionParser()
    parser.add_option("--xsec","--xsec",dest="xsec",type=float,default=0.0,help="Injected signal cross section in pb")
    parser.add_option("-M","-M",dest="mass",type=float,default=3500.,help="Injected signal mass")
+   parser.add_option("--lnn",dest="lnn",default=True,action="store_true",help="Read lnn uncertainty from file")
    parser.add_option("-i","--inputDir",dest="inputDir",default='./',help="directory with all quantiles h5 files")
    parser.add_option("--qcd","--qcd",dest="qcdFile",default='qcd.h5',help="QCD h5 file")
    parser.add_option("--sig","--sig",dest="sigFile",default='signal.h5',help="Signal h5 file")
@@ -172,6 +173,9 @@ if __name__ == "__main__":
     
    seed=-1 
    mass = options.mass
+   signal_name=os.path.split(options.sigFile)[-1]
+   signal_name=signal_name.replace('Reco.h5','').replace('signal_','')
+
    mass_label=(int)(mass)
    sig_res = options.sig_res
    out_dir = options.out_dir
@@ -224,7 +228,7 @@ if __name__ == "__main__":
    large_bins_sig_fit = array('f',truncate(binsx,*sig_mjj_limits))
    roobins_sig_fit = ROOT.RooBinning(len(large_bins_sig_fit)-1, array('d',large_bins_sig_fit), "mjjbins_sig")
    print " &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  "
-   lumi = 26.8 #inv fb
+   lumi = 137.2 #inv fb
    sig_incl = 150000.
    sig_xsec = 1000.*options.xsec # transform from pb to fb
    sig_scale = sig_xsec*lumi/sig_incl #rescale xsec from pb to fb   
@@ -326,11 +330,23 @@ if __name__ == "__main__":
    fit_parameters={}
    for iq,q in enumerate(quantiles):
       
-      if q!=most_an: continue
+      #if q!=most_an and q!='total': continue
+      if q!='total': continue # Check for inclusive only limits
+      try:
+         df=pd.read_csv(os.path.join(options.inputDir,'uncertainties_updated_with_lund_%s.csv'%q))
+         signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
+         lnn=df[df['signal_name']==signame].total.values[0]
+         print(lnn)
+      except:
+         lnn=20.
+         print('fetching uncertainties failed. Defaulting to 0.2 for systematics and 0. for lund ')
+      
+      lnn=1.0+0.01*lnn
+   
 
       print "########## FIT SIGNAL AND SAVE PARAMETERS for quantile "+q+"    ############"
       sig_outfile = ROOT.TFile(os.path.join(out_dir, "sig_fit_%s.root"%q),"RECREATE")
-
+      
       ### create signal model: 
       # option dcb == False: gaussian centered at mass-center with sigma in {2%,10%of mass center} + crystal ball for asymmetric tail (pure functional form)
       # option dcb == True: Double Crystal Ball as in B2G-20-009 (some parameters are fixed in the Fitter.py as tested on XYY... does it work for all signals?)
@@ -435,7 +451,11 @@ if __name__ == "__main__":
       print "############# INJECT SIGNAL DATA GENERATING FROM SIGNAL PDF for quantile "+q+" ###########"
       #QCD is taken from the histogram
      
-      f = ROOT.TFile("%s/cache%i.root"%(os.environ['TMPDIR'],random.randint(0, 1e+6)),"RECREATE")
+      try:
+         f = ROOT.TFile("/tmp/aritra/cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")
+      except:
+         print 'tmpdir for user not found, creating cache file in current dir'
+         f = ROOT.TFile("cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")  
       f.cd()
       w=ROOT.RooWorkspace("w","w")
 
@@ -687,20 +707,33 @@ if __name__ == "__main__":
 
       card=DataCardMaker(q, out_dir)
 
-      #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       #else: card.addSignalShape('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
-      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       
       ### !!! compute amount of signal to be injected 
-           
-      if sig_xsec==0: constant = 0.001 # might give too large yields for combine to converge ???
+      df=pd.read_csv(os.path.join(options.inputDir,'efficiencies.csv'),names=['sig','deff','peff','meff','eff'])
+      peff=df[df['sig']==signal_name].peff.values[0]
+      meff=df[df['sig']==signal_name].meff.values[0]
+      deff=df[df['sig']==signal_name].deff.values[0]
+      eff =df[df['sig']==signal_name].eff.values[0]
+      tag_eff=histos_sig[iq].GetEntries()/histos_sig[-1].GetEntries()
+      if q=='total': 
+         tag_eff=1.
+         eff=peff*deff
+      # In case we are not restricting the range
+
+
+      if sig_xsec==0: constant =1680. # lumi*eff*tag_eff #  might give too large yields for combine to converge ???
       else: constant = sig_scale  #scaling factor to signal histo integral used by addFixedYieldFromFile --> should return r=1 in FitDiagnostics
       print " constant = scaling factor to signal integral generated with 1 pb = 1000 fb xsec = ",constant
       # add signal pdf from model_s, taking integral number of events with constant scaling factor for sig
-      card.addFixedYieldFromFile('model_signal_mjj',0, os.path.join(out_dir, 'sig_fit_%s.root'%q), histos_sig[iq].GetName(), constant=constant)
-      card.addSystematic("CMS_scale_j","param",[0.0,0.012])
-      card.addSystematic("CMS_res_j","param",[0.0,0.08])    
-      card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.20})
+      card.addFixedYieldFromFile('model_signal_mjj',0, os.path.join(out_dir, 'sig_fit_%s.root'%q), histos_sig[iq].GetName(), norm=constant)
+      card.addSystematic("CMS_scale_j","param",[0.0,0.01])
+      card.addSystematic("CMS_res_j","param",[0.0,0.035])    
+      card.addSystematic("norm_unc","lnN",{"model_signal_mjj":lnn})
+      # if lnn_lund>1.0:
+      #    card.addSystematic("lund_unc","lnN",{"model_signal_mjj":lnn_lund})   
 
       # add bg pdf
       card.addQCDShapeNoTag('model_qcd_mjj','mjj', os.path.join(out_dir, qcd_fname[iq]), nPars_QCD[iq])
@@ -750,8 +783,68 @@ if __name__ == "__main__":
             writer = csv.writer(csv_file)
             #import pdb; pdb.set_trace()
             writer.writerow(fields)
+         f_limit_name = ('{out_dir}/higgsCombine_limits_{mass:.1f}_xsec{xsec}_{label}.AsymptoticLimits.mH{mass:.0f}.root').format(out_dir=out_dir,xsec=sig_xsec,label=q,mass=mass)
+         f_limit = ROOT.TFile(f_limit_name, "READ")
+         res1 = f_limit.Get("limit")
+         res1.GetEntry(0)
          
-   
+         fields=[signal_name,mass,tag_eff]
+         new_fields=[signal_name,mass]
+        
+         
+         fields+=[deff,peff,meff,eff,eff*tag_eff]
+         #new_fields+=[deff,peff,meff,eff,eff*tag_eff]
+         for ii in range((int)(res1.GetEntries())):
+            res1.GetEntry(ii)
+            #fields.append(res1.limit*1680.) # Convert to upper limit on signal
+            new_fields.append(res1.limit*1680./(137.2*eff*tag_eff))
+            #new_fields.append(res1.limit)
+         
+         #fields.append(1680.*res1.limitErr) # LimitErr for last entry which is the observed limit
+         new_fields.append(res1.limitErr*1680./(137.2*eff*tag_eff))
+         #new_fields.append(res1.limitErr)
+         
+         ## COLUMNS: signal name, mass,tag_eff,d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
+         #csv_filename=os.path.join(out_dir,'event_limits.csv')
+         #with open(csv_filename, 'a+') as csv_file:
+         #   writer = csv.writer(csv_file)
+         #   writer.writerow(fields)
+         csv_filename=os.path.join(out_dir,'xsec_limits.csv')
+         with open(csv_filename, 'a+') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(new_fields)
+         
+   if q=='total':
+         f_limit_name = ('{out_dir}/higgsCombine_limits_{mass:.1f}_xsec{xsec}_{label}.AsymptoticLimits.mH{mass:.0f}.root').format(out_dir=out_dir,xsec=sig_xsec,label=q,mass=mass)
+         f_limit = ROOT.TFile(f_limit_name, "READ")
+         res1 = f_limit.Get("limit")
+         res1.GetEntry(0)
+         
+         fields=[signal_name,mass,tag_eff]
+         new_fields=[signal_name,mass]
+        
+         fields+=[deff,peff,meff,eff,eff*tag_eff]
+         #new_fields+=[deff,peff,meff,eff,eff*tag_eff]
+         for ii in range((int)(res1.GetEntries())):
+            res1.GetEntry(ii)
+            #fields.append(res1.limit*1680.) # Convert to upper limit on signal
+            new_fields.append(res1.limit*1680./(137.2*eff*tag_eff))
+            #new_fields.append(res1.limit)
+         
+         #fields.append(1680.*res1.limitErr) # LimitErr for last entry which is the observed limit
+         new_fields.append(res1.limitErr*1680./(137.2*eff*tag_eff))
+         #new_fields.append(res1.limitErr)
+         
+         ## COLUMNS: signal name, mass,tag_eff,d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
+         csv_filename=os.path.join(out_dir,'inclusive_event_limits.csv')
+         with open(csv_filename, 'a+') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(fields)
+         csv_filename=os.path.join(out_dir,'inclusive_xsec_limits.csv')
+         with open(csv_filename, 'a+') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(new_fields)
+         
    if not options.best_fitrange:
       sys.exit(0)
    else:
@@ -760,8 +853,7 @@ if __name__ == "__main__":
    for iq,q in enumerate(quantiles):
       print " for quantile ",q," chosen ", nPars_QCD[iq]," parameter function"
    print "--------------------------------------------------------------------------------------------------"      
-   print
-   print
+
    print "############ MAKE N-CATEGORY DATACARD AND WORKSPACE AND RUN COMBINE #############"
    #The difference here is that the background shape comes from one specific quantile (rather than from its own as above)
 

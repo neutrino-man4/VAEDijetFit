@@ -7,12 +7,13 @@ import ROOT
 import CMS_lumi, tdrstyle
 import copy
 from Utils import *
-
+import pandas as pd
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
-    parser.add_option("--xsec","--xsec",dest="xsec",type=float,default=0.0006,help="Injected signal cross section in pb")
+    parser.add_option("-x","--xsec",dest="xsec",type=float,default=0.01,help="Injected signal cross section in pb")
     parser.add_option("-M","-M",dest="mass",type=float,default=3500.,help="Injected signal mass")
+    parser.add_option("--lnn",dest="lnn",default=True,action="store_true",help="If true, read lnn uncertainty from file")
     parser.add_option("-i","--inputDir",dest="inputDir",default='./',help="directory with all quantiles h5 files")
     parser.add_option("--qcd","--qcd",dest="qcdFile",default='qcd.h5',help="QCD h5 file")
     parser.add_option("--sig","--sig",dest="sigFile",default='signal.h5',help="Signal h5 file")
@@ -46,6 +47,7 @@ if __name__ == "__main__":
     err_thresh=options.err_thresh
     mjj_min=options.mjj_min
     mjj_max=options.mjj_max
+    
     if not options.save_all:
         dijet_cmd = "python dijetfit.py -i %s --xsec %f -M %.0f --ftest_thresh %.2f --err_thresh %.2f --out %s --qcd %s --sig %s --config %d" % (inputDir, xsec, mass, ftest_thresh, err_thresh,outputDir,qcdFile,sigFile,config)
     else:
@@ -65,19 +67,24 @@ if __name__ == "__main__":
         dijet_cmd+= " --rebin"
     if options.cleanup:
         dijet_cmd+= " --cleanup"
+    if options.lnn:
+        dijet_cmd+= " --lnn"
     
     run_fit = True
     last_change = 'start' # flag to store whether the last change was made at the start value of the fit or the end value. 
     iter=0
 
     if options.no_dynamic:
+        dijet_cmd+=" --mjj_min %.0f" % mjj_min
+        dijet_cmd+=" --mjj_max %.0f" % mjj_max
+        print(dijet_cmd)
         subprocess.call(dijet_cmd,  shell = True, executable = '/bin/bash')
         print("Exiting. Best fit range will not be found.")
-        sys.exit(0)
+        run_fit=False
     while (run_fit):
         if (iter>2):
             print('Will probably not converge. Exiting')
-            sys.exit(0)
+            break
         run_fit=False 
         dijet_cmd_iter=copy.deepcopy(dijet_cmd)
         # if (iter>0):
