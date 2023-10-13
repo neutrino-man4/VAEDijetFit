@@ -33,6 +33,7 @@ if __name__ == "__main__":
     parser.add_option("--save-all", default=False, action="store_true", help="""Choose whether to save all outputs or only the best fit outputs. \n If used, output will be stored in out_dir/mjj_min-mjj_max""")
     parser.add_option("--no-dynamic",default=False,action="store_true",help="""Use this option when best fit range is not required and original range is desired""")
     parser.add_option("--cleanup", default=False, action="store_true", help="""Use if you want to cleanup directory before next run""")
+    parser.add_option("--bestfit", default=False, dest="best_fitrange",action="store_true", help="""Proceed only if best fit range is found.""")
     (options,args) = parser.parse_args()
 
     xsec=options.xsec
@@ -69,6 +70,8 @@ if __name__ == "__main__":
         dijet_cmd+= " --cleanup"
     if options.lnn:
         dijet_cmd+= " --lnn"
+    if options.best_fitrange:
+        dijet_cmd+= " --bestfit"
     
     run_fit = True
     last_change = 'start' # flag to store whether the last change was made at the start value of the fit or the end value. 
@@ -120,9 +123,9 @@ if __name__ == "__main__":
             fit_params=json.load(f)
         if (fit_params['bkgfit_prob'] < 0.05):# and fit_params['sbfit_prob'] < 0.05):
             run_fit=True
-            print "Fit will be run again in the range %.0f to %.0f GeV" % (mjj_min,mjj_max)
+            print("Fit will be run again in the range %.0f to %.0f GeV" % (mjj_min,mjj_max))
         else:
-            print "Best binning found: %.0f to %.0f GeV. Exiting." % (mjj_min,mjj_max)
+            print("Best binning found: %.0f to %.0f GeV. Exiting." % (mjj_min,mjj_max))
         
         # Change binning ranges if fit is too poor    
         if (run_fit):
@@ -137,7 +140,7 @@ if __name__ == "__main__":
                 last_change='end'
             elif (mjj_min+250. <= mass): mjj_min+=100.
             else:
-                print "Boundaries have not been changed"
+                print("Boundaries have not been changed")
                 run_fit = False
         
 
