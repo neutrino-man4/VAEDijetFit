@@ -35,10 +35,10 @@ def get_generated_events(filename):
          found = True
    
    if not found: 
-      print ( "######### no matching key in files_count.json for file "+filename+", EXIT !!!!!!!!!!!!!!")
+      print("######### no matching key in files_count.json for file "+filename+", EXIT !!!!!!!!!!!!!!")
       sys.exit()
 
-   print ( " in get_generated_events N = ",N) 
+   print(" in get_generated_events N = ",N) 
    return N 
 
 def makeData(options, dataFile, q, iq, quantiles, hdata, last_q, minMJJ=0, maxMJJ=1e+04):
@@ -46,8 +46,10 @@ def makeData(options, dataFile, q, iq, quantiles, hdata, last_q, minMJJ=0, maxMJ
    file = h5py.File(options.inputDir+"/"+dataFile,'r')
    sel_key_q = 'sel_q30' if q == 'q0' else 'sel_' + q # selection column for quantile q (use rejected events of q70 for q100)
    print(iq,len(quantiles),q)
-   if iq<len(quantiles)-1: print "Current quantile file: %s, reading quantile between %s and %s" % (file, q, quantiles[iq+1])
-   else: print "Current quantile file: %s, reading quantile between %s and %s" % (file, q, quantiles[iq])
+   if iq<len(quantiles)-1: 
+      print("Current quantile file: %s, reading quantile between %s and %s" % (file, q, quantiles[iq+1]))
+   
+   else: print("Current quantile file: %s, reading quantile between %s and %s" % (file, q, quantiles[iq]))
 
    data = file['eventFeatures'][()] 
    mjj_idx = np.where(file['eventFeatureNames'][()] == 'mJJ')[0][0]
@@ -68,7 +70,7 @@ def makeData(options, dataFile, q, iq, quantiles, hdata, last_q, minMJJ=0, maxMJ
     for e in range(data.shape[0]):
      if data[e][sel_idx]==0: hdata.Fill(data[e][mjj_idx]) 
    else: 
-     print ".... checking orthogonality wrt",quantiles[iq+1],"quantile...."
+     print(".... checking orthogonality wrt",quantiles[iq+1],"quantile....")
      sel_key_iq = 'sel_' + quantiles[iq+1] # selection column for quantile q -- ex: if q=q30 it must reject q50 and accept q30
      sel_idx_iq = np.where(file['eventFeatureNames'][()] == sel_key_iq)[0][0] # 0=rejected 1=accepted
      for e in range(data.shape[0]):
@@ -170,7 +172,7 @@ if __name__ == "__main__":
    parser.add_option("--bestfit", default=False, dest="best_fitrange",action="store_true", help="""Proceed only if best fit range is found.""")
    parser.add_option("--cleanup", default=False, action="store_true", help="""Use if you want to cleanup directory before next run""")
    (options,args) = parser.parse_args()
-    
+   
    seed=-1 
    mass = options.mass
    signal_name=os.path.split(options.sigFile)[-1]
@@ -185,6 +187,14 @@ if __name__ == "__main__":
              4010, 4171, 4337, 4509, 4700, 4900,  5100, 5300, 5500, 5800,
              6100, 6400, 6800]
    bins_fine = int(binsx[-1]-binsx[0])          
+   
+   
+   df=pd.read_csv(os.path.join(options.inputDir,'efficiencies.csv'),names=['sig','deff','peff','meff','eff'])
+   peff=df[df['sig']==signal_name].peff.values[0]
+   meff=df[df['sig']==signal_name].meff.values[0]
+   deff=df[df['sig']==signal_name].deff.values[0]
+   eff =df[df['sig']==signal_name].eff.values[0] # Product of presel eff, mass cut eff and deta cut eff.
+   
    #original binning
    #binsx = [1455,1530,1607,1687,1770,1856,1945,2037,2132,2231,2332,2438,2546,2659,2775,2895,3019,3147,3279,3416,3558,3704,3854,4010,4171,4337,4509,4686,4869,5058,5253,5500,5663,5877,6100,6400,6800]
    #roobins = ROOT.RooBinning(len(binsx)-1, array('d',binsx), "mjjbins") 
@@ -223,17 +233,20 @@ if __name__ == "__main__":
       sig_mjj_limits = (0.8*mass,1.2*mass)
    else:
       sig_mjj_limits = (0.4*mass,1.4*mass)
-
+   
+   print("Using entire mass range for signal fit")
+   sig_mjj_limits = (options.mjj_min,options.mjj_max)
+   
    bins_sig_fit = array('f',truncate([binsx[0]+ib for ib in range(bins_fine+1)],*sig_mjj_limits))
    large_bins_sig_fit = array('f',truncate(binsx,*sig_mjj_limits))
    roobins_sig_fit = ROOT.RooBinning(len(large_bins_sig_fit)-1, array('d',large_bins_sig_fit), "mjjbins_sig")
-   print " &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  "
+   print(" &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  ")
    lumi = 137.2 #inv fb
    sig_incl = 150000.
    sig_xsec = 1000.*options.xsec # transform from pb to fb
    sig_scale = sig_xsec*lumi/sig_incl #rescale xsec from pb to fb   
-   print " sig_xsec ",sig_xsec,"lumi",lumi,"sig_incl",sig_incl,"sig_scale",sig_scale
-   print " &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  "
+   print(" sig_xsec ",sig_xsec,"lumi",lumi,"sig_incl",sig_incl,"sig_scale",sig_scale)
+   print(" &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  ")
 
    ################################### FIRST PREPARE DATA ###################################
    '''
@@ -246,6 +259,9 @@ if __name__ == "__main__":
    '''       
    histos_sig = []
    histos_qcd = []
+   tag_eff={}
+
+
 
    if not options.load_data:
       
@@ -257,7 +273,7 @@ if __name__ == "__main__":
          histos_qcd.append( ROOT.TH1F("mjj_qcd_%s"%q,"mjj_qcd_%s"%q,bins_fine,binsx[0],binsx[-1]) )
          print
          makeData(options,options.qcdFile,q,iq,quantiles,histos_qcd[-1],quantiles[-2],binsx[0],binsx[-1]) #first fill orthogonal data histos
-         print "************ Found",histos_qcd[-1].GetEntries(),"/",histos_qcd[-1].Integral(),"background events for quantile",q
+         print("************ Found",histos_qcd[-1].GetEntries(),"/",histos_qcd[-1].Integral(),"background events for quantile",q)
          print
 
       #Signal data preparation 
@@ -266,9 +282,9 @@ if __name__ == "__main__":
          histos_sig.append( ROOT.TH1F("mjj_sig_%s"%q,"mjj_sig_%s"%q,len(bins_sig_fit)-1,bins_sig_fit ) )
          print
          makeData(options,options.sigFile,q,iq,quantiles,histos_sig[-1],quantiles[-2],binsx[0],binsx[-1]) #first fill orthogonal data histos 
-         print "************ Found",histos_sig[-1].GetEntries(),"/",histos_sig[-1].Integral(),"signal events for quantile",q
+         print("************ Found",histos_sig[-1].GetEntries(),"/",histos_sig[-1].Integral(),"signal events for quantile",q)
          print
-
+         
       for h in histos_sig: h.SaveAs(os.path.join(out_dir, "data_"+h.GetName()+".root"))
       for h in histos_qcd: h.SaveAs(os.path.join(out_dir, "data_"+h.GetName()+".root"))
       #sys.exit()
@@ -296,17 +312,21 @@ if __name__ == "__main__":
          histos_qcd[-1].SetDirectory(ROOT.gROOT)
          q_datafile.Close()
         
-      for q,h in enumerate(histos_sig): print "************ Found",h.GetEntries(),"/",h.Integral(),"signal events for quantile",quantiles[q]
-      for q,h in enumerate(histos_qcd): print "************ Found",h.GetEntries(),"/",h.Integral(),"background events for quantile",quantiles[q]
+      for q,h in enumerate(histos_sig): print("************ Found",h.GetEntries(),"/",h.Integral(),"signal events for quantile",quantiles[q])
+      for q,h in enumerate(histos_qcd): print("************ Found",h.GetEntries(),"/",h.Integral(),"background events for quantile",quantiles[q])
 
    sum_n_histos_qcd = sum([h.GetEntries() for h in histos_qcd[:-1]])
    sum_n_histos_sig = sum([h.GetEntries() for h in histos_sig[:-1]])
 
-   print "************************************************************************************** "
-   print "TOTAL SIGNAL EVENTS",histos_sig[-1].GetEntries(),"/",histos_sig[-1].Integral(), " (sum histos = )", sum_n_histos_sig
-   print "TOTAL BACKGROUND EVENTS",histos_qcd[-1].GetEntries(),"/",histos_qcd[-1].Integral(), " (sum histos = )", sum_n_histos_qcd
+   for iq,q in enumerate(quantiles):
+      tag_eff[q]=histos_sig[iq].GetEntries()/histos_sig[-1].GetEntries()
+   
+   print("************************************************************************************** ")
+   print("TOTAL SIGNAL EVENTS",histos_sig[-1].GetEntries(),"/",histos_sig[-1].Integral(), " (sum histos = )", sum_n_histos_sig)
+   print("TOTAL BACKGROUND EVENTS",histos_qcd[-1].GetEntries(),"/",histos_qcd[-1].Integral(), " (sum histos = )", sum_n_histos_qcd)
    print
-   print "************************************************************************************** "
+   print("************************************************************************************** ")
+      
 
    ################################### NOW MAKE THE FITS ###################################
    '''
@@ -328,23 +348,49 @@ if __name__ == "__main__":
    fit_errs = [0]*len(quantiles)
    dcb = True #use Double Crystal Ball for signal templates
    fit_parameters={}
+   lnn={}
+   lnn_up={}
+   lnn_down={}
+   uncertainties_UD = ['JES','JER','JMS','JMR','pdf','prefire','pileup','btag','PS_ISR','PS_FSR','F','R','RF','top_ptrw','lund_sys','lund_bquark','lund_stat','lund_pt']
+   uncertainties_norm = ['lund_bad_matching_unc']
+   uncertainty_dict={}
+
    for iq,q in enumerate(quantiles):
       
       #if q!=most_an and q!='total': continue
-      if q!='total': continue # Check for inclusive only limits
-      try:
-         df=pd.read_csv(os.path.join(options.inputDir,'uncertainties_updated_with_lund_%s.csv'%q))
-         signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
-         lnn=df[df['signal_name']==signame].total.values[0]
-         print(lnn)
-      except:
-         lnn=20.
-         print('fetching uncertainties failed. Defaulting to 0.2 for systematics and 0. for lund ')
+      #if q!='total': continue # Check for inclusive only limits
+      # try:
+      #    if options.config==4:
+      #       df=pd.read_csv(os.path.join(options.inputDir,'uncertainties_updated_with_lund_%s_4category.csv'%q))
+      #    else:
+      #       df=pd.read_csv(os.path.join(options.inputDir,'uncertainties_updated_with_lund_%s.csv'%q))
+         
+      #    signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
+      #    lnn[q]=df[df['signal_name']==signame].total.values[0]
+      #    print(lnn[q])
+      # except:
+      #    lnn[q]=20.
+      #    print('fetching uncertainties failed. Defaulting to 0.2 for systematics and 0. for lund ')
       
-      lnn=1.0+0.01*lnn
-   
-
-      print "########## FIT SIGNAL AND SAVE PARAMETERS for quantile "+q+"    ############"
+      try:
+         if options.config==4:
+            df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
+         else:
+            print("Set config to 4")
+            sys.exit(0)
+         uc_dict={}
+         for uc in uncertainties_UD:
+            uc_dict[uc+'_up']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
+            uc_dict[uc+'_down']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
+            
+         uc_dict['lund_bad_matching_unc']=1+0.01*df[df['signal_name']==signame]['lund_bad_matching_unc'].values[0]
+         lnn[q]=uc_dict
+      except:
+         lnn[q]=20.
+         print('fetching uncertainties failed. Defaulting to 0.2 for systematics and 0. for lund ')
+         signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
+      
+      print("########## FIT SIGNAL AND SAVE PARAMETERS for quantile "+q+"    ############")
       sig_outfile = ROOT.TFile(os.path.join(out_dir, "sig_fit_%s.root"%q),"RECREATE")
       
       ### create signal model: 
@@ -369,16 +415,16 @@ if __name__ == "__main__":
       fitter.importBinnedData(histos_sig[iq],['mjj_fine'],'data')
       fres = fitter.fit('model_s','data',[ROOT.RooFit.Save(1)],out_dir)
       fres.Print()
-      print "**********************************************************************************************"
-      print "signal fit result for quantile "+q
+      print("**********************************************************************************************")
+      print("signal fit result for quantile "+q)
       fres.status()
-      print " estimated distance to minimum ",fres.edm()
+      print(" estimated distance to minimum ",fres.edm())
       if fres.edm() < 1.00e-03:
-         print " FIT CONVERGED "
+         print(" FIT CONVERGED ")
       else:
-         print " FIT DIDN'T CONVERGE "
+         print(" FIT DIDN'T CONVERGE ")
          #break
-      print "**********************************************************************************************"
+      print("**********************************************************************************************")
 
       ### compute chi-square of compatibility of signal-histogram and signal model for sanity ch05eck
       # plot fit result to signal_fit_q.png for each quantile q
@@ -407,15 +453,15 @@ if __name__ == "__main__":
       
       sig_outfile.Close() 
 
-      print "#############################"
-      print "for quantile ",q
-      print "signal fit chi2 (fine binning)",chi2_fine
-      print "signal fit chi2 (large binning)",chi2
-      print "#############################"
+      print("#############################")
+      print("for quantile ",q)
+      print("signal fit chi2 (fine binning)",chi2_fine)
+      print("signal fit chi2 (large binning)",chi2)
+      print("#############################")
 
       print
       print
-      print "############# FIT BACKGROUND AND SAVE PARAMETERS for quantile "+q+"   ###########"
+      print("############# FIT BACKGROUND AND SAVE PARAMETERS for quantile "+q+"   ###########")
 
       sb1_edge = 2232
       sb2_edge = 2776
@@ -448,13 +494,13 @@ if __name__ == "__main__":
          norm = ROOT.RooFit.Normalization(histos_qcd[iq].GetEntries(),
                                         ROOT.RooAbsReal.NumEvent)
 
-      print "############# INJECT SIGNAL DATA GENERATING FROM SIGNAL PDF for quantile "+q+" ###########"
+      print("############# INJECT SIGNAL DATA GENERATING FROM SIGNAL PDF for quantile "+q+" ###########")
       #QCD is taken from the histogram
      
       try:
          f = ROOT.TFile("/tmp/aritra/cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")
       except:
-         print 'tmpdir for user not found, creating cache file in current dir'
+         print('tmpdir for user not found, creating cache file in current dir')
          f = ROOT.TFile("cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")  
       f.cd()
       w=ROOT.RooWorkspace("w","w")
@@ -475,13 +521,13 @@ if __name__ == "__main__":
       # signal xsec set to 0 by default, so hdatasig hist not filled !
       if sig_xsec != 0 and not options.run_toys:     
          num_sig_evts = int(histos_sig[iq].GetEntries()*sig_scale)
-         print "Generate", num_sig_evts, "signal events!" 
+         print("Generate", num_sig_evts, "signal events!" )
          datasig = model_s.generateBinned(ROOT.RooArgSet(mjj),num_sig_evts)
          hdatasig = datasig.createHistogram("mjj_fine")
       else: # just set same bins as qcd hist, do not fill!
-         print (" xsec is zero!")
+         print(" xsec is zero!")
          hdatasig = ROOT.TH1F("mjj_generate_sig_%s"%q,"mjj_generate_sig_%s"%q,histos_qcd[iq].GetNbinsX(),histos_qcd[iq].GetXaxis().GetXmin(),histos_qcd[iq].GetXaxis().GetXmax())
-      print " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"  
+      print(" ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"  )
       hdatasig.SetName("mjj_generate_sig_%s"%q)
       
       # signal+background fit (total histo) => since signal xsec = 0 per default, this is only background data & fit!
@@ -500,7 +546,7 @@ if __name__ == "__main__":
       f.Delete()
       sb_outfile.Close()
       fitter.delete()
-
+      
       print
       print
 
@@ -529,10 +575,10 @@ if __name__ == "__main__":
          fres = fitter_QCD.fit('model_b','data_qcd',[ROOT.RooFit.Save(1), ROOT.RooFit.Verbose(0),  ROOT.RooFit.Minos(1), ROOT.RooFit.Minimizer("Minuit2")],out_dir)
          fres.Print()
 
-         print "**********************************************************************************************"
-         print "qcd fit result for quantile "+q+" and function parameters "+str(nPars)
+         print("**********************************************************************************************")
+         print("qcd fit result for quantile "+q+" and function parameters "+str(nPars))
          fres.status()
-         print " estimated distance to minimum ",fres.edm()
+         print(" estimated distance to minimum ",fres.edm())
          #if fres.edm() < 1.00e-03:
          #   print " FIT CONVERGED "
          #   nParsToTry_converged.append(nPars)
@@ -635,7 +681,7 @@ if __name__ == "__main__":
          graphs = {}
          for p in range(nPars): graphs['p%i'%(p+1)] = ROOT.TGraphErrors()
          for var,graph in graphs.iteritems():
-            print var
+            print(var)
             value,error=fitter_QCD.fetch(var)
             graph.SetPoint(0,mass,value)
             graph.SetPointError(0,0.0,error)
@@ -659,12 +705,12 @@ if __name__ == "__main__":
 
          qcd_outfile.Close()
 
-         print "#############################"
-         print " for quantile ",q
-         print "bkg fit chi2 (fine binning)",chi2_fine
-         print "bkg fit chi2 (large binning)",chi2_binned
-         print "bkg fit chi2",chi2
-         print "#############################"
+         print("#############################")
+         print(" for quantile ",q)
+         print("bkg fit chi2 (fine binning)",chi2_fine)
+         print("bkg fit chi2 (large binning)",chi2_binned)
+         print("bkg fit chi2",chi2)
+         print("#############################")
 
          print("bkg fit chi2/nbins (fine binning) ", chi2_fine)
          print("My chi2, ndof, prob", my_chi2, my_ndof, my_prob)
@@ -689,7 +735,7 @@ if __name__ == "__main__":
       nPars_QCD[iq] = nParsToTry[best_i[iq]] #nParsToTry_converged[best_i[iq]]
       qcd_fname[iq] = qcd_fnames[best_i[iq]]
       best_probs[iq] = probs[iq][best_i[iq]]
-      print ( " qcd_fname[iq] ",qcd_fname[iq])
+      print(" qcd_fname[iq] ",qcd_fname[iq])
       print("\n Chose %i parameters based on F-test ! \n" % nPars_QCD[iq])
 
       print
@@ -703,7 +749,7 @@ if __name__ == "__main__":
       fit_parameters['nPars']=nPars_QCD[iq]
       fit_parameters['quantile']=q
 
-      print "############ MAKE PER CATEGORY (quantile ",q," ) DATACARD AND WORKSPACE AND RUN COMBINE #############"
+      print("############ MAKE PER CATEGORY (quantile ",q," ) DATACARD AND WORKSPACE AND RUN COMBINE #############")
 
       card=DataCardMaker(q, out_dir)
 
@@ -712,29 +758,23 @@ if __name__ == "__main__":
       #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
       
       ### !!! compute amount of signal to be injected 
-      df=pd.read_csv(os.path.join(options.inputDir,'efficiencies.csv'),names=['sig','deff','peff','meff','eff'])
-      peff=df[df['sig']==signal_name].peff.values[0]
-      meff=df[df['sig']==signal_name].meff.values[0]
-      deff=df[df['sig']==signal_name].deff.values[0]
-      eff =df[df['sig']==signal_name].eff.values[0]
-      tag_eff=histos_sig[iq].GetEntries()/histos_sig[-1].GetEntries()
       if q=='total': 
-         tag_eff=1.
-         eff=peff*deff
+         tag_eff[q]=1.
+         #eff=peff*deff*meff # Remove meff if mass range is not reduced
       # In case we are not restricting the range
 
-
-      if sig_xsec==0: constant =1680. # lumi*eff*tag_eff #  might give too large yields for combine to converge ???
+      if sig_xsec==0: constant =lumi*eff*tag_eff[q] #1680. #   might give too large yields for combine to converge ???
       else: constant = sig_scale  #scaling factor to signal histo integral used by addFixedYieldFromFile --> should return r=1 in FitDiagnostics
-      print " constant = scaling factor to signal integral generated with 1 pb = 1000 fb xsec = ",constant
+      print(" constant = scaling factor to signal integral generated with 1 pb = 1000 fb xsec = ",constant)
       # add signal pdf from model_s, taking integral number of events with constant scaling factor for sig
       card.addFixedYieldFromFile('model_signal_mjj',0, os.path.join(out_dir, 'sig_fit_%s.root'%q), histos_sig[iq].GetName(), norm=constant)
       card.addSystematic("CMS_scale_j","param",[0.0,0.01])
-      card.addSystematic("CMS_res_j","param",[0.0,0.035])    
-      card.addSystematic("norm_unc","lnN",{"model_signal_mjj":lnn})
-      # if lnn_lund>1.0:
-      #    card.addSystematic("lund_unc","lnN",{"model_signal_mjj":lnn_lund})   
-
+      card.addSystematic("CMS_res_j","param",[0.0,0.035])
+      if q!='total':
+         for uc in uncertainties_UD:    
+            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})
+      else:
+         card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.2})
       # add bg pdf
       card.addQCDShapeNoTag('model_qcd_mjj','mjj', os.path.join(out_dir, qcd_fname[iq]), nPars_QCD[iq])
       card.addFloatingYield('model_qcd_mjj',1, os.path.join(out_dir, qcd_fname[iq]), histos_qcd[iq].GetName(),0,1e+8) #in reality we won't have this value from MC but we can put whatever since it's a flatParam
@@ -758,13 +798,13 @@ if __name__ == "__main__":
       else:
             cmd = 'cd {out_dir} && ' \
             'text2workspace.py datacard_JJ_{label}.txt -o workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, mass=mass, xsec=sig_xsec, label=q)
-      print cmd
+      print(cmd)
       os.system(cmd)
       fitter_QCD.delete()
       #run and visualize s+b fit as sanity check (sb_fit_mjj_qcd_q.root.pdf)
       CHI2,NDOF=checkSBFit('{out_dir}/workspace_JJ_{xsec}_{label}.root'.format(out_dir=out_dir, xsec=sig_xsec,label=q),q,roobins,histos_qcd[iq].GetName()+"_M{mass}_xsec{xsec}.root".format(mass=mass,xsec=sig_xsec), nPars_QCD[iq], out_dir)
       fit_parameters['sbfit_prob']=ROOT.TMath.Prob(CHI2,NDOF)
-      print " %%%%%%%%%%%%%%%%%%%%%%%% done with quantile ",q
+      print(" %%%%%%%%%%%%%%%%%%%%%%%% done with quantile ",q)
 
       with open(os.path.join(out_dir,'fit_params_%s.json'%(q)), 'w') as f:
          json.dump(fit_parameters,f)
@@ -781,34 +821,27 @@ if __name__ == "__main__":
          csv_filename=os.path.join(out_dir,'pvalues.csv')
          with open(csv_filename, 'a+') as csv_file:
             writer = csv.writer(csv_file)
-            #import pdb; pdb.set_trace()
             writer.writerow(fields)
          f_limit_name = ('{out_dir}/higgsCombine_limits_{mass:.1f}_xsec{xsec}_{label}.AsymptoticLimits.mH{mass:.0f}.root').format(out_dir=out_dir,xsec=sig_xsec,label=q,mass=mass)
          f_limit = ROOT.TFile(f_limit_name, "READ")
          res1 = f_limit.Get("limit")
          res1.GetEntry(0)
          
-         fields=[signal_name,mass,tag_eff]
+         fields=[signal_name,mass,tag_eff[q]]
          new_fields=[signal_name,mass]
         
          
-         fields+=[deff,peff,meff,eff,eff*tag_eff]
-         #new_fields+=[deff,peff,meff,eff,eff*tag_eff]
+         fields+=[deff,peff,meff,eff,eff*tag_eff[q]]
          for ii in range((int)(res1.GetEntries())):
             res1.GetEntry(ii)
-            #fields.append(res1.limit*1680.) # Convert to upper limit on signal
-            new_fields.append(res1.limit*1680./(137.2*eff*tag_eff))
-            #new_fields.append(res1.limit)
+            #new_fields.append(res1.limit*1680./(137.2*eff*tag_eff[q]))
+            new_fields.append(res1.limit)
          
-         #fields.append(1680.*res1.limitErr) # LimitErr for last entry which is the observed limit
-         new_fields.append(res1.limitErr*1680./(137.2*eff*tag_eff))
-         #new_fields.append(res1.limitErr)
+         #new_fields.append(res1.limitErr*1680./(137.2*eff*tag_eff[q]))
+         new_fields.append(res1.limitErr)
          
-         ## COLUMNS: signal name, mass,tag_eff,d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
-         #csv_filename=os.path.join(out_dir,'event_limits.csv')
-         #with open(csv_filename, 'a+') as csv_file:
-         #   writer = csv.writer(csv_file)
-         #   writer.writerow(fields)
+         ## COLUMNS: signal name, mass,tag_eff[q],d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
+         
          csv_filename=os.path.join(out_dir,'xsec_limits.csv')
          with open(csv_filename, 'a+') as csv_file:
             writer = csv.writer(csv_file)
@@ -820,22 +853,22 @@ if __name__ == "__main__":
          res1 = f_limit.Get("limit")
          res1.GetEntry(0)
          
-         fields=[signal_name,mass,tag_eff]
+         fields=[signal_name,mass,tag_eff[q]]
          new_fields=[signal_name,mass]
         
-         fields+=[deff,peff,meff,eff,eff*tag_eff]
-         #new_fields+=[deff,peff,meff,eff,eff*tag_eff]
+         fields+=[deff,peff,meff,eff,eff*tag_eff[q]]
+         #new_fields+=[deff,peff,meff,eff,eff*tag_eff[q]]
          for ii in range((int)(res1.GetEntries())):
             res1.GetEntry(ii)
             #fields.append(res1.limit*1680.) # Convert to upper limit on signal
-            new_fields.append(res1.limit*1680./(137.2*eff*tag_eff))
-            #new_fields.append(res1.limit)
+            #new_fields.append(res1.limit*1680./(137.2*eff*tag_eff[q]))
+            new_fields.append(res1.limit)
          
          #fields.append(1680.*res1.limitErr) # LimitErr for last entry which is the observed limit
-         new_fields.append(res1.limitErr*1680./(137.2*eff*tag_eff))
-         #new_fields.append(res1.limitErr)
+         #new_fields.append(res1.limitErr*1680./(137.2*eff*tag_eff[q]))
+         new_fields.append(res1.limitErr)
          
-         ## COLUMNS: signal name, mass,tag_eff,d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
+         ## COLUMNS: signal name, mass,tag_eff[q],d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
          csv_filename=os.path.join(out_dir,'inclusive_event_limits.csv')
          with open(csv_filename, 'a+') as csv_file:
             writer = csv.writer(csv_file)
@@ -848,13 +881,13 @@ if __name__ == "__main__":
    if not options.best_fitrange:
       sys.exit(0)
    else:
-      print "BEST FITTING RANGE FOUND. WILL CONTINUE"
-   print "------------------------------------------------- F-TEST result -------------------------------------------------"
+      print("BEST FITTING RANGE FOUND. WILL CONTINUE")
+   print("------------------------------------------------- F-TEST result -------------------------------------------------")
    for iq,q in enumerate(quantiles):
-      print " for quantile ",q," chosen ", nPars_QCD[iq]," parameter function"
-   print "--------------------------------------------------------------------------------------------------"      
+      print(" for quantile ",q," chosen ", nPars_QCD[iq]," parameter function")
+   print("--------------------------------------------------------------------------------------------------")      
 
-   print "############ MAKE N-CATEGORY DATACARD AND WORKSPACE AND RUN COMBINE #############"
+   print("############ MAKE N-CATEGORY DATACARD AND WORKSPACE AND RUN COMBINE #############")
    #The difference here is that the background shape comes from one specific quantile (rather than from its own as above)
 
    cmdCombine = 'cd {out_dir} && combineCards.py '.format(out_dir=out_dir)
@@ -869,26 +902,28 @@ if __name__ == "__main__":
             if not 'total' in qcd_fname[i]: qcd_fname[i] =  qcd_fname[0].replace( qcd_fname[0].split("_")[-1], qcd_fname[i].split("_")[-1])
             print("Names after replacing",qcd_fname[i])
 
+   #combined_tag_eff=0.
    for iq,q in enumerate(quantiles):  
    
       if q == 'total': continue
-
+      #combined_tag_eff+=tag_eff[q]
       card=DataCardMaker(q+"_4combo", out_dir) # 4combo = for combination, intermediate datacards that will be combined in the final one. 
 
-      #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0},{'CMS_res_j':1.0})
+      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0},{'CMS_res_j':1.0})
       #else: card.addSignalShape('model_signal_mjj','mjj', os.path.join(out_dir, 'sig_fit_%s.root'%q), {'CMS_scale_j':1.0},{'CMS_res_j':1.0})
-      if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
+      #if dcb: card.addSignalShapeDCB('model_signal_mjj','mjj', './XToYY_CASE_shapes/case_interpolation_M%s.0.root'%(str(mass_label)), {'CMS_scale_j':1.0}, {'CMS_res_j':1.0})
 
-      if sig_xsec==0: constant = 0.001 #1.0 # might give too large yields for combine to converge ???
+      if sig_xsec==0: constant = lumi*eff*tag_eff[q] # 1680.0 # might give too large yields for combine to converge ???
       else: constant = sig_scale  #scaling factor to signal histo integral used by addFixedYieldFromFile --> should return r=1 in FitDiagnostics
-      card.addFixedYieldFromFile('model_signal_mjj',0, os.path.join(out_dir, 'sig_fit_%s.root'%q), "mjj_sig_%s"%q, constant=constant) #JEN CHANGE BACK TO: histos_sig[iq].GetName()
-      card.addSystematic("CMS_scale_j","param",[0.0,0.012])
-      card.addSystematic("CMS_res_j","param",[0.0,0.08]) 
-      card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.20})
-
+      card.addFixedYieldFromFile('model_signal_mjj',0, os.path.join(out_dir, 'sig_fit_%s.root'%q), "mjj_sig_%s"%q, norm=constant) #JEN CHANGE BACK TO: histos_sig[iq].GetName()
+      card.addSystematic("CMS_scale_j","param",[0.0,0.01])
+      card.addSystematic("CMS_res_j","param",[0.0,0.035])    
+      for uc in uncertainties_UD:    
+         card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})
+      
       if options.correlateB == True:
          #TAKE BACKGROUND SHAPE COMES FROM BACKGROUND-ENRICHED QUANTILE SLICE --> WHICH ONE? TRY THE Q0 SLICE!
-         print "============================== IMPLEMENTING FULL CORRELATION AMONG CATEGORIES !!!"
+         print("============================== IMPLEMENTING FULL CORRELATION AMONG CATEGORIES !!!")
          card.addQCDShapeNoTag('model_qcd_mjj','mjj', os.path.join(out_dir, qcd_fname[0]), nPars_QCD[0])
          if q=='q0': card.addFloatingYield('model_qcd_mjj',1, os.path.join(out_dir, qcd_fname[iq]), histos_qcd[iq].GetName())
          else: card.addFloatingYieldCorr('model_qcd_mjj',1, os.path.join(out_dir, qcd_fname[iq]), "mjj_qcd_%s"%q,fractions[iq], constant=histos_qcd[0].GetEntries(),mini=0,maxi=1e+8)
@@ -908,7 +943,7 @@ if __name__ == "__main__":
    
    #MAKE FINAL DATACARD (needs some cosmetics as below) 
    cmdCombine += '&> datacard_{xsec}_final.txt'.format(xsec=sig_xsec)
-   print cmdCombine
+   print(cmdCombine)
    os.system(cmdCombine)
   
    d = open(os.path.join(out_dir, 'datacard_tmp.txt'),'w')
@@ -921,19 +956,42 @@ if __name__ == "__main__":
           'mv datacard_tmp.txt datacard_{xsec}_final.txt && ' \
           'text2workspace.py datacard_{xsec}_final.txt -o workspace_JJ_{xsec}_final.root && ' \
           'combine -M FitDiagnostics workspace_JJ_{xsec}_final.root -m {mass} -n _M{mass}_xsec{xsec} && ' \
+          'combine -M AsymptoticLimits workspace_JJ_{xsec}_final.root -m {mass} -n _limits_{mass}_xsec{xsec}_final && ' \
           'combine -M Significance workspace_JJ_{xsec}_final.root -m {mass} -n significance_{xsec} && '\
           'combine -M Significance workspace_JJ_{xsec}_final.root -m {mass} --pvalue -n pvalue_{xsec}'.format(out_dir=out_dir, mass=mass,xsec=sig_xsec, SEED=seed)
    else:
           cmd = 'cd {out_dir} && ' \
           'mv datacard_tmp.txt datacard_{xsec}_final.txt && ' \
           'text2workspace.py datacard_{xsec}_final.txt -o workspace_JJ_{xsec}_final.root'.format(out_dir=out_dir, mass=mass,xsec=sig_xsec)
-   print cmd
+   print(cmd)
    os.system(cmd)
+   
+   f_limit_name = ('{out_dir}/higgsCombine_limits_{mass:.1f}_xsec{xsec}_final.AsymptoticLimits.mH{mass:.0f}.root').format(out_dir=out_dir,xsec=sig_xsec,mass=mass)
+   f_limit = ROOT.TFile(f_limit_name, "READ")
+   res1 = f_limit.Get("limit")
+   res1.GetEntry(0)
+   
+   new_fields=[signal_name,mass]
+   
+   for ii in range((int)(res1.GetEntries())):
+      res1.GetEntry(ii)
+      #new_fields.append(res1.limit*1680./(137.2*eff*combined_tag_eff))
+      new_fields.append(res1.limit)
+   
+   #new_fields.append(res1.limitErr*1680./(137.2*eff**combined_tag_eff))
+   new_fields.append(res1.limitErr)
+   #new_fields.append(combined_tag_eff)   
+   
+   ## COLUMNS: signal name, mass,tag_eff[q],d_eta_eff,presel_eff,mass_eff,eff(product of d*p*m effs.),total_eff, L2.5,L16,L50,L84,L97.5,L_obs,L_obs_error
+   csv_filename=os.path.join(out_dir,'final_xsec_limits.csv')
+   with open(csv_filename, 'a+') as csv_file:
+      writer = csv.writer(csv_file)
+      writer.writerow(new_fields)
    filetypes=["root","png","C"]
    for ft in filetypes:
       cmd = 'find ./*.'+ft+' -mtime 0 -exec mv {} '+out_dir+' \;'
       os.system(cmd)
-   print " DONE! "
+   print(" DONE! ")
 
    for iq,q in enumerate(quantiles): 
       if q == 'total': continue
