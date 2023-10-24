@@ -631,7 +631,7 @@ def checkSBFit(filename,label,roobins,plotname, nPars, plot_dir):
     pdf_names = ["model_s","Signal","Background"] 
     PlotFitResults(frame,fres.GetName(),nPars,frame3,"data_obs", pdf_names,chi2,ndof,'sbFit_'+plotname, plot_dir, has_sig = True)
 
-    print "chi2,ndof are", chi2, ndof
+    print ("chi2,ndof are", chi2, ndof)
     return chi2, ndof
 
 def get_roohist_sum(h):
@@ -705,7 +705,7 @@ def get_pull_hist(model, frame, central, curve,  hresid, fit_hist, bins):
 
 def f_test(nParams, nDof, chi2, fit_errs, thresh = 0.05, err_thresh = 0.5):
     #assumes arrays are in increasing number of params order (ie nParams[0] is minimum number of params)
-    print  "\n\n #################### STARTING F TEST #######################" 
+    print  ("\n\n #################### STARTING F TEST #######################" )
     best_i = 0
     for i in range(1, len(nParams)):
         print("F test comparing %i to %i params" % (nParams[best_i], nParams[i]))
@@ -853,6 +853,6 @@ def checkSBFitFinal(filename,label,roobins,plotname, nPars, plot_dir):
     pdf_names = ["model_s","Signal","Background"] 
     PlotFitResults(frame,fres.GetName(),nPars,frame3,"data_obs", pdf_names,chi2,ndof,'sbFit_'+plotname, plot_dir, has_sig = True)
 
-    print "chi2,ndof are", chi2, ndof
+    print ("chi2,ndof are", chi2, ndof)
     return chi2, ndof
 

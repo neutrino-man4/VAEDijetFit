@@ -189,7 +189,11 @@ if __name__ == "__main__":
    bins_fine = int(binsx[-1]-binsx[0])          
    
    
-   df=pd.read_csv(os.path.join(options.inputDir,'efficiencies.csv'),names=['sig','deff','peff','meff','eff'])
+   try:
+      df=pd.read_csv('efficiencies.csv',names=['sig','deff','peff','meff','eff'])
+   except:
+      df=pd.read_csv(os.path.join(options.inputDir,'efficiencies.csv'),names=['sig','deff','peff','meff','eff'])
+   
    peff=df[df['sig']==signal_name].peff.values[0]
    meff=df[df['sig']==signal_name].meff.values[0]
    deff=df[df['sig']==signal_name].deff.values[0]
@@ -351,9 +355,10 @@ if __name__ == "__main__":
    lnn={}
    lnn_up={}
    lnn_down={}
-   uncertainties_UD = ['JES','JER','JMS','JMR','pdf','prefire','pileup','btag','PS_ISR','PS_FSR','F','R','RF','top_ptrw','lund_sys','lund_bquark','lund_stat','lund_pt']
+   uncertainties_UD = ['JES','JER','JMS','JMR','pdf','prefire','pileup','btag','PS_ISR','PS_FSR','F','R','RF','top_ptrw','lund_sys','lund_bquark','lund_stat','lund_pt','match_frac_channel_q90','match_frac_channel_q95','match_frac_channel_q99']
    uncertainties_norm = ['lund_bad_matching_unc']
    uncertainty_dict={}
+   signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
 
    for iq,q in enumerate(quantiles):
       
@@ -372,26 +377,21 @@ if __name__ == "__main__":
       #    lnn[q]=20.
       #    print('fetching uncertainties failed. Defaulting to 0.2 for systematics and 0. for lund ')
       
-      try:
-         if options.config==4:
+      if options.config==4:
+         if q!='total':
             df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
-         else:
-            print("Set config to 4")
-            sys.exit(0)
-         uc_dict={}
-         for uc in uncertainties_UD:
-            uc_dict[uc+'_up']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
-            uc_dict[uc+'_down']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
-            
-         uc_dict['lund_bad_matching_unc']=1+0.01*df[df['signal_name']==signame]['lund_bad_matching_unc'].values[0]
+      else:
+         print("Set config to 4")
+         sys.exit(0)
+      uc_dict={}
+      for uc in uncertainties_UD:
+         uc_dict[uc+'_up']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
+         uc_dict[uc+'_down']=1+0.01*df[df['signal_name']==signame][uc+'_down'].values[0]   
          lnn[q]=uc_dict
-      except:
-         lnn[q]=20.
-         print('fetching uncertainties failed. Defaulting to 0.2 for systematics and 0. for lund ')
-         signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
       
       print("########## FIT SIGNAL AND SAVE PARAMETERS for quantile "+q+"    ############")
       sig_outfile = ROOT.TFile(os.path.join(out_dir, "sig_fit_%s.root"%q),"RECREATE")
+      
       
       ### create signal model: 
       # option dcb == False: gaussian centered at mass-center with sigma in {2%,10%of mass center} + crystal ball for asymmetric tail (pure functional form)
@@ -499,10 +499,12 @@ if __name__ == "__main__":
      
       try:
          f = ROOT.TFile("/tmp/aritra/cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")
+         f.cd()
       except:
          print('tmpdir for user not found, creating cache file in current dir')
          f = ROOT.TFile("cache%i.root"%(random.randint(0, 1e+6)),"RECREATE")  
-      f.cd()
+         f.cd()
+      
       w=ROOT.RooWorkspace("w","w")
 
       # this is needed to get the right mjj observable (leave it)
@@ -557,7 +559,7 @@ if __name__ == "__main__":
       probs[iq] = [0]*len(nParsToTry)
       fit_params[iq] = [0]*len(nParsToTry)
       fit_errs[iq] = [0]*len(nParsToTry)
-
+      
       for i, nPars in enumerate(nParsToTry):
          print("Trying %i parameter background fit" % nPars)
 
@@ -566,7 +568,7 @@ if __name__ == "__main__":
          fitter_QCD.qcdShape('model_b','mjj_fine',nPars)
 
          ### fit background model to actual qcd histogram data (all cuts applied)
-         sb_outfile = ROOT.TFile(os.path.join(out_dir, 'sb_fit_%s.root'%q),'READ')
+         sb_outfile = ROOT.TFile(os.path.join(out_dir,'sb_fit_%s.root'%q),'READ')
          my_histo = sb_outfile.Get("mjj_generate_tot_%s"%q)
 
          fitter_QCD.importBinnedData(my_histo,['mjj_fine'],'data_qcd')
@@ -624,7 +626,7 @@ if __name__ == "__main__":
 
         #use toys to sample errors rather than linear method, 
         #needed b/c dijet fn's usually has strong correlation of params
-        linear_errors = False
+         linear_errors = False
 
          dataset.plotOn(frame, ROOT.RooFit.Name("data_qcd"), ROOT.RooFit.Invisible(), ROOT.RooFit.Binning(roobins), ROOT.RooFit.DataError(ROOT.RooAbsData.SumW2), ROOT.RooFit.Rescale(rescale))
          model.plotOn(frame, ROOT.RooFit.VisualizeError(fres, 1, linear_errors), ROOT.RooFit.FillColor(ROOT.kRed - 7), ROOT.RooFit.LineColor(ROOT.kRed - 7), ROOT.RooFit.Name(fres.GetName()), fit_norm)
@@ -727,6 +729,9 @@ if __name__ == "__main__":
          fit_errs[iq][i] = bkg_fit_frac_err
          fitter_QCD.delete()
       
+      
+      
+      
       print(nParsToTry)
       print(nParsToTry_converged)
       print(ndofs)
@@ -740,14 +745,13 @@ if __name__ == "__main__":
       best_probs[iq] = probs[iq][best_i[iq]]
       print(" qcd_fname[iq] ",qcd_fname[iq])
       print("\n Chose %i parameters based on F-test ! \n" % nPars_QCD[iq])
-
+     
       print
       print 
 
 
       print
       print
-      
       fit_parameters['bkgfit_prob']=best_probs[iq]
       fit_parameters['nPars']=nPars_QCD[iq]
       fit_parameters['quantile']=q
@@ -775,7 +779,10 @@ if __name__ == "__main__":
       card.addSystematic("CMS_res_j","param",[0.0,0.035])
       if q!='total':
          for uc in uncertainties_UD:    
-            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})
+            #if 'match' in uc:
+            #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f'%lnn[q][uc+'_up']})
+            #else:
+            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
       else:
          card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.2})
       # add bg pdf
@@ -850,7 +857,7 @@ if __name__ == "__main__":
             writer = csv.writer(csv_file)
             writer.writerow(new_fields)
          
-   if q=='total':
+      if q=='total':
          f_limit_name = ('{out_dir}/higgsCombine_limits_{mass:.1f}_xsec{xsec}_{label}.AsymptoticLimits.mH{mass:.0f}.root').format(out_dir=out_dir,xsec=sig_xsec,label=q,mass=mass)
          f_limit = ROOT.TFile(f_limit_name, "READ")
          res1 = f_limit.Get("limit")
@@ -922,7 +929,10 @@ if __name__ == "__main__":
       card.addSystematic("CMS_scale_j","param",[0.0,0.01])
       card.addSystematic("CMS_res_j","param",[0.0,0.035])    
       for uc in uncertainties_UD:    
-         card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})
+         #if 'match' in uc:
+         #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f'%lnn[q][uc+'_up']})
+         #else:
+         card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
       
       if options.correlateB == True:
          #TAKE BACKGROUND SHAPE COMES FROM BACKGROUND-ENRICHED QUANTILE SLICE --> WHICH ONE? TRY THE Q0 SLICE!
