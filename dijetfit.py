@@ -778,11 +778,12 @@ if __name__ == "__main__":
       card.addSystematic("CMS_scale_j","param",[0.0,0.01])
       card.addSystematic("CMS_res_j","param",[0.0,0.035])
       if q!='total':
-         for uc in uncertainties_UD:    
-            #if 'match' in uc:
-            #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f'%lnn[q][uc+'_up']})
-            #else:
-            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+         for uc in uncertainties_UD:
+            if (q not in uc) and ('match' in uc):    
+               card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_down'],lnn[q][uc+'_up'])})   
+            else:
+               card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+               
       else:
          card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.2})
       # add bg pdf
@@ -932,7 +933,11 @@ if __name__ == "__main__":
          #if 'match' in uc:
          #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f'%lnn[q][uc+'_up']})
          #else:
-         card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+         if (q not in uc) and ('match' in uc):    
+            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_down'],lnn[q][uc+'_up'])})   
+         else:
+            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+               
       
       if options.correlateB == True:
          #TAKE BACKGROUND SHAPE COMES FROM BACKGROUND-ENRICHED QUANTILE SLICE --> WHICH ONE? TRY THE Q0 SLICE!
