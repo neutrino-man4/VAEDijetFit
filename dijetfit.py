@@ -791,7 +791,7 @@ if __name__ == "__main__":
       card.addSystematic("CMS_scale_j","param",[0.0,0.012])
       card.addSystematic("CMS_res_j","param",[0.0,0.08]) 
       card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.20})
-
+      
       if options.correlateB == True:
          #TAKE BACKGROUND SHAPE COMES FROM BACKGROUND-ENRICHED QUANTILE SLICE --> WHICH ONE? TRY THE Q0 SLICE!
          print "============================== IMPLEMENTING FULL CORRELATION AMONG CATEGORIES !!!"
