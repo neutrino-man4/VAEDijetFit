@@ -101,10 +101,11 @@ if __name__ == "__main__":
         
         if options.save_all: # If all outputs are to be stored, then create a separate directory. This is only for the purpose of comparing between different fit ranges and the best fit. 
             outputDir_iter=os.path.join(outputDir,'%d-%dGeV'%(mjj_min,mjj_max))
-            dijet_cmd_iter+= " --out %s" % outputDir_iter
+            
         else:
             outputDir_iter=copy.deepcopy(outputDir)
         
+        dijet_cmd_iter+= " --out %s" % outputDir_iter
         # Print command to be run, and then run it. 
         print(dijet_cmd_iter)
         subprocess.call(dijet_cmd_iter,  shell = True, executable = '/bin/bash')
@@ -142,7 +143,3 @@ if __name__ == "__main__":
             else:
                 print("Boundaries have not been changed")
                 run_fit = False
-        
-
-
-
