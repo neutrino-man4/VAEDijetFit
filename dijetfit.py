@@ -361,7 +361,7 @@ if __name__ == "__main__":
    signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
 
    for iq,q in enumerate(quantiles):
-      
+      if q!=most_an: continue   # we only need the q90 fits. 
       #if q!=most_an and q!='total': continue
       #if q!='total': continue # Check for inclusive only limits
       # try:
@@ -381,8 +381,9 @@ if __name__ == "__main__":
          if q!='total':
             df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
       else:
-         print("Set config to 4")
-         sys.exit(0)
+         print("Set config back to 4. This is the limits branch. Continuing anyways.")
+         df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
+         #sys.exit(0)
       uc_dict={}
       for uc in uncertainties_UD:
          uc_dict[uc+'_up']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
@@ -755,7 +756,17 @@ if __name__ == "__main__":
       fit_parameters['bkgfit_prob']=best_probs[iq]
       fit_parameters['nPars']=nPars_QCD[iq]
       fit_parameters['quantile']=q
-
+      
+      results=dict()
+      results['bkgfit_chi2'] = chi2s[best_i]
+      results['bkgfit_ndof'] = ndofs[best_i]
+      results['bkgfit_prob'] = probs[best_i]
+      results['bkgfit_frac_err'] = fit_errs[best_i]
+      results['bkg_fit_params'] = fit_params[best_i]
+      results['cov']= bkg_fit_params['cov']
+      with open(os.path.join(out_dir,"fit_results_{}.json".format(options.mass)), 'w') as jsonfile:
+         json.dump(results, jsonfile, indent=4)
+      
       print("############ MAKE PER CATEGORY (quantile ",q," ) DATACARD AND WORKSPACE AND RUN COMBINE #############")
 
       card=DataCardMaker(q, out_dir)
