@@ -80,10 +80,12 @@ if __name__ == "__main__":
     if options.no_dynamic:
         dijet_cmd+=" --mjj_min %.0f" % mjj_min
         dijet_cmd+=" --mjj_max %.0f" % mjj_max
+        dijet_cmd+= " --out %s" % outputDir
         print(dijet_cmd)
         subprocess.call(dijet_cmd,  shell = True, executable = '/bin/bash')
-        print("Exiting. Best fit range will not be found.")
+        print("Exiting run.py. Best fit range will not be found.")
         run_fit=False
+    
     while (run_fit):
         if (iter>2):
             print('Will probably not converge. Exiting')
