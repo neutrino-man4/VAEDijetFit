@@ -758,13 +758,20 @@ if __name__ == "__main__":
       fit_parameters['quantile']=q
       
       results=dict()
-      results['bkgfit_chi2'] = chi2s[best_i]
-      results['bkgfit_ndof'] = ndofs[best_i]
-      results['bkgfit_prob'] = probs[best_i]
-      results['bkgfit_frac_err'] = fit_errs[best_i]
-      results['bkg_fit_params'] = fit_params[best_i]
-      results['cov']= bkg_fit_params['cov']
-      with open(os.path.join(out_dir,"fit_results_{}.json".format(options.mass)), 'w') as jsonfile:
+      import pdb;pdb.set_trace()
+      results['bkgfit_chi2'] = chi2s[iq][best_i[iq]]
+      results['bkgfit_ndof'] = ndofs[iq][best_i[iq]]
+      results['bkgfit_prob'] = probs[iq][best_i[iq]]
+      results['bkgfit_frac_err'] = fit_errs[iq][best_i[iq]]
+      results['bkg_fit_params'] = fit_params[iq][best_i[iq]]
+      results['nPars_QCD']=nPars_QCD[iq]
+      results['mjj_min']=options.mjj_min
+      results['mjj_max']=options.mjj_max
+      
+      results['cov']= fit_params[iq][best_i[iq]]['cov']
+
+      
+      with open(os.path.join(out_dir,"fit_results_{}_{}.json".format(q,options.mass)), 'w') as jsonfile:
          json.dump(results, jsonfile, indent=4)
       
       print("############ MAKE PER CATEGORY (quantile ",q," ) DATACARD AND WORKSPACE AND RUN COMBINE #############")
