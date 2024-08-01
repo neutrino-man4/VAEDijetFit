@@ -355,13 +355,18 @@ if __name__ == "__main__":
    lnn={}
    lnn_up={}
    lnn_down={}
-   uncertainties_UD = ['JES','JER','JMS','JMR','pdf','prefire','pileup','btag','PS_ISR','PS_FSR','F','R','RF','top_ptrw','lund_sys','lund_bquark','lund_stat','lund_pt','match_frac_channel_q90','match_frac_channel_q95','match_frac_channel_q99']
+   uncertainties_UD = ['JES','JER','JMS','JMR','pdf','prefire','pileup','btag','PS_ISR','PS_FSR','F','R','RF','top_ptrw',\
+                       'lund_sys','lund_bquark','lund_nprongs','lund_distortion','lund_unclustered','lund_stat','lund_pt']
+                        #,'match_frac_channel_q90','match_frac_channel_q95','match_frac_channel_q99']
    uncertainties_norm = ['lund_bad_matching_unc']
    uncertainty_dict={}
    signame=os.path.split(options.sigFile)[-1].replace('signal_','').replace('Reco.h5','')
 
    for iq,q in enumerate(quantiles):
-      if q!=most_an: continue   # we only need the q90 fits. 
+      ## FOR LIMIT SETTING in the combined category, don't skip any quantile
+
+
+      #if q!=most_an: continue   # if we only need the q90 fits. 
       #if q!=most_an and q!='total': continue
       #if q!='total': continue # Check for inclusive only limits
       # try:
@@ -379,11 +384,11 @@ if __name__ == "__main__":
       
       if options.config==4:
          if q!='total':
-            df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
+            df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category_forLimitSummary_5TeV.csv'%q))
       else:
-         print("Set config back to 4. This is the limits branch. Continuing anyways.")
-         df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
-         #sys.exit(0)
+         print("Set config back to 4. This is the limits branch. Exiting")
+         #df=pd.read_csv(os.path.join(options.inputDir,'csv','uncertainties_UP+DOWN_%s_4category.csv'%q))
+         sys.exit(0)
       uc_dict={}
       for uc in uncertainties_UD:
          uc_dict[uc+'_up']=1+0.01*df[df['signal_name']==signame][uc+'_up'].values[0]
@@ -758,7 +763,7 @@ if __name__ == "__main__":
       fit_parameters['quantile']=q
       
       results=dict()
-      import pdb;pdb.set_trace()
+      
       results['bkgfit_chi2'] = chi2s[iq][best_i[iq]]
       results['bkgfit_ndof'] = ndofs[iq][best_i[iq]]
       results['bkgfit_prob'] = probs[iq][best_i[iq]]
@@ -797,10 +802,12 @@ if __name__ == "__main__":
       card.addSystematic("CMS_res_j","param",[0.0,0.035])
       if q!='total':
          for uc in uncertainties_UD:
-            if (q not in uc) and ('match' in uc):    
-               card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_down'],lnn[q][uc+'_up'])})   
-            else:
-               card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+         # The next 4 lines were needed for the matching fraction uncertainty - now redundant
+            # if (q not in uc) and ('match' in uc):    
+            #    card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_down'],lnn[q][uc+'_up'])})   
+            # else:
+            #    card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
                
       else:
          card.addSystematic("norm_unc","lnN",{"model_signal_mjj":1.2})
@@ -951,10 +958,13 @@ if __name__ == "__main__":
          #if 'match' in uc:
          #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f'%lnn[q][uc+'_up']})
          #else:
-         if (q not in uc) and ('match' in uc):    
-            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_down'],lnn[q][uc+'_up'])})   
-         else:
-            card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+         
+         # The next 4 lines were needed for the matching fraction uncertainty - now redundant
+         #if (q not in uc) and ('match' in uc):    
+         #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_down'],lnn[q][uc+'_up'])})   
+         #else:
+         #   card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
+         card.addSystematic(uc,"lnN",{"model_signal_mjj":'%0.04f/%0.04f'%(lnn[q][uc+'_up'],lnn[q][uc+'_down'])})   
                
       
       if options.correlateB == True:
